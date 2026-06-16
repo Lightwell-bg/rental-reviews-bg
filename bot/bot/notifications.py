@@ -7,6 +7,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from bot.config import STATUS_LABELS
 from bot.db import get_user_by_id
 from bot.keyboards import CB_MAIN_MY, CB_MY_REVIEW_PREFIX
+from bot.moderation_reasons import mentions_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,12 @@ def build_author_status_message(review: dict[str, Any]) -> str | None:
             "\nОткройте заявку в боте, нажмите «Исправить и отправить снова», "
             "внесите правки и отправьте на модерацию."
         )
+        notes_preview = _format_notes(review)
+        if mentions_evidence(notes_preview):
+            lines.append(
+                "\nНа шаге доказательств можно приложить фото или документы "
+                "(переписка, договор, чеки)."
+            )
     elif status == "rejected":
         lines.append("\nОтзыв не будет опубликован.")
     elif status == "approved":

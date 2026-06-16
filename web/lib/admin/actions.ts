@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyReviewAuthor, shouldNotifyAuthor } from "@/lib/telegram/notifyAuthor";
+import { formatModerationNotes } from "@/lib/moderationReasons";
 
 const REVIEW_ACTIONS: Record<string, string> = {
   approve: "approved",
@@ -17,7 +18,7 @@ const REVIEW_ACTIONS: Record<string, string> = {
 export async function moderateReview(
   reviewId: string,
   action: string,
-  comment?: string
+  options?: { reasonCode?: string; comment?: string }
 ) {
   await requireAdmin();
 
@@ -27,17 +28,22 @@ export async function moderateReview(
   }
 
   const supabase = createAdminClient();
-  const trimmedComment = comment?.trim() || undefined;
+  const trimmedComment = options?.comment?.trim() || undefined;
   const payload: Record<string, unknown> = { status };
 
   if (status === "approved") {
     payload.published_at = new Date().toISOString();
   }
 
-  if (
-    trimmedComment &&
-    (status === "request_changes" || status === "rejected")
-  ) {
+  if (status === "request_changes" || status === "rejected") {
+    if (!options?.reasonCode) {
+      throw new Error("Выберите причину для автора");
+    }
+    payload.moderation_notes = formatModerationNotes(
+      options.reasonCode,
+      trimmedComment
+    );
+  } else if (trimmedComment) {
     payload.moderation_notes = trimmedComment;
   }
 
@@ -52,7 +58,7 @@ export async function moderateReview(
     review_id: reviewId,
     admin_id: null,
     action,
-    comment: trimmedComment || `Web admin: ${action}`,
+    comment: payload.moderation_notes?.toString() || trimmedComment || `Web admin: ${action}`,
   });
 
   if (logError) throw new Error(logError.message);

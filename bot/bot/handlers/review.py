@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery, Message
 from bot.config import MAX_EVIDENCE_FILES, TARGET_TYPE_LABELS, get_admin_telegram_ids
 from bot.db import (
     add_moderation_log,
+    count_evidence_files,
     create_review,
     get_or_create_user,
     get_review,
@@ -34,7 +35,11 @@ from bot.keyboards import (
     CB_CONFIRM_SEND,
     CB_CATALOG_PAGE_PREFIX,
     CB_CATALOG_PREFIX,
+    CB_FILES_ADD_MORE,
+    CB_FILES_BACK,
     CB_FILES_DONE,
+    CB_FILES_SKIP,
+    CB_FILES_SKIP_CONFIRM,
     CB_RATING_PREFIX,
     CB_SKIP,
     CB_TARGET_PREFIX,
@@ -42,11 +47,13 @@ from bot.keyboards import (
     catalog_kb,
     confirm_kb,
     files_kb,
+    files_skip_confirm_kb,
     main_menu_kb,
     rating_kb,
     skip_kb,
     target_type_kb,
 )
+from bot.moderation_reasons import mentions_evidence
 from bot.states import ReviewForm
 from bot.utils.ai_moderation import analyze_review_for_moderation, format_ai_flags_for_admin
 from bot.utils.catalog import normalize_catalog_name, validate_catalog_label
@@ -114,8 +121,10 @@ async def begin_resubmit_flow(
         return
 
     await state.clear()
+    existing_evidence = count_evidence_files(review_id)
     await state.update_data(
         resubmit_review_id=review_id,
+        existing_evidence_count=existing_evidence,
         target_type=review.get("target_type"),
         city=review.get("city"),
         district=review.get("district"),
@@ -125,6 +134,7 @@ async def begin_resubmit_flow(
         public_text=review.get("public_text"),
         private_text=review.get("private_text"),
         author_display_name=review.get("author_display_name"),
+        moderation_notes=review.get("moderation_notes"),
     )
     await state.set_state(ReviewForm.author_display_name)
 
@@ -134,6 +144,13 @@ async def begin_resubmit_flow(
     ]
     if review.get("moderation_notes"):
         lines.append(f"<b>Что исправить:</b>\n{html_escape(str(review['moderation_notes']))}")
+    if mentions_evidence(review.get("moderation_notes")):
+        lines.append(
+            "<b>💡 Рекомендация:</b> на шаге доказательств приложите фото или документы "
+            "(переписка, договор, чеки)."
+        )
+    if existing_evidence:
+        lines.append(f"<b>Уже загружено:</b> {existing_evidence} файл(ов) — можно добавить ещё.")
     lines.append(_format_previous_review_content(review))
     lines.append(
         f"Текущее имя на сайте: <i>{html_escape(str(review.get('author_display_name') or '—'))}</i>\n\n"
@@ -682,29 +699,42 @@ async def process_private_text(message: Message, state: FSMContext) -> None:
 async def _go_to_files_step(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     is_resubmit = bool(data.get("resubmit_review_id"))
+    existing_count = int(data.get("existing_evidence_count") or 0)
     await state.update_data(file_ids=[], review_id=None)
     await state.set_state(ReviewForm.evidence_files)
-    if is_resubmit:
-        text = (
-            f"При необходимости загрузите <b>дополнительные</b> файлы "
-            f"(фото или документы), до {MAX_EVIDENCE_FILES} шт.\n"
-            "Ранее загруженные файлы сохранены.\n"
-            "Файлы <b>не публикуются</b> — только для модератора.\n"
-            "Когда закончите — нажмите «Готово»."
+
+    evidence_hint = ""
+    if is_resubmit and mentions_evidence(data.get("moderation_notes")):
+        evidence_hint = (
+            "\n\n<b>Модератор просит приложить доказательства.</b> "
+            "Загрузите новые файлы ниже."
         )
-    else:
-        text = (
-            f"Загрузите файлы-доказательства (фото или документы), до {MAX_EVIDENCE_FILES} шт.\n"
-            "Файлы <b>не публикуются</b> — только для модератора.\n"
-            "Когда закончите — нажмите «Готово»."
+    elif is_resubmit and existing_count:
+        evidence_hint = (
+            f"\n\nУже сохранено файлов: <b>{existing_count}</b>. "
+            "Можно добавить новые (старые останутся)."
         )
-    await message.answer(text, reply_markup=files_kb(0, MAX_EVIDENCE_FILES))
+
+    text = (
+        "📎 <b>Доказательства</b> (необязательно, но повышают шанс публикации)\n\n"
+        f"Пришлите фото или документы: договор, переписку, чеки, фото дефектов — "
+        f"до {MAX_EVIDENCE_FILES} новых файлов за раз.\n"
+        "Файлы <b>не публикуются</b> — их видит только модератор."
+        f"{evidence_hint}\n\n"
+        "Чтобы <b>загрузить</b> — просто отправьте фото или документ в чат.\n"
+        "Когда всё готово — нажмите <b>«Перейти к отправке»</b>."
+    )
+    await message.answer(
+        text,
+        reply_markup=files_kb(0, MAX_EVIDENCE_FILES, existing_count=existing_count),
+    )
 
 
 @router.message(ReviewForm.evidence_files)
 async def process_evidence_file(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     file_ids: list[str] = data.get("file_ids", [])
+    existing_count = int(data.get("existing_evidence_count") or 0)
 
     if message.photo:
         file_ids.append(message.photo[-1].file_id)
@@ -712,22 +742,67 @@ async def process_evidence_file(message: Message, state: FSMContext) -> None:
         file_ids.append(message.document.file_id)
     else:
         await message.answer(
-            "Отправьте фото или документ, либо нажмите «Готово».",
-            reply_markup=files_kb(len(file_ids), MAX_EVIDENCE_FILES),
+            "Отправьте фото или документ в чат. "
+            "Или нажмите «Перейти к отправке» / «Отправить без доказательств».",
+            reply_markup=files_kb(
+                len(file_ids), MAX_EVIDENCE_FILES, existing_count=existing_count
+            ),
         )
         return
 
     if len(file_ids) > MAX_EVIDENCE_FILES:
         file_ids = file_ids[:MAX_EVIDENCE_FILES]
-        await message.answer(f"Достигнут лимит {MAX_EVIDENCE_FILES} файлов.")
+        await message.answer(f"Достигнут лимит {MAX_EVIDENCE_FILES} новых файлов за раз.")
     await state.update_data(file_ids=file_ids)
     await message.answer(
-        f"Файл принят ({len(file_ids)}/{MAX_EVIDENCE_FILES}).",
-        reply_markup=files_kb(len(file_ids), MAX_EVIDENCE_FILES),
+        f"Файл принят ({len(file_ids)}/{MAX_EVIDENCE_FILES} новых).",
+        reply_markup=files_kb(
+            len(file_ids), MAX_EVIDENCE_FILES, existing_count=existing_count
+        ),
     )
 
 
-@router.callback_query(ReviewForm.evidence_files, lambda c: c.data == CB_FILES_DONE)
+@router.callback_query(ReviewForm.evidence_files, lambda c: c.data == CB_FILES_ADD_MORE)
+async def files_add_more_hint(callback: CallbackQuery) -> None:
+    await callback.answer(
+        "Отправьте следующее фото или документ сообщением в чат.",
+        show_alert=True,
+    )
+
+
+@router.callback_query(ReviewForm.evidence_files, lambda c: c.data == CB_FILES_SKIP)
+async def files_skip_prompt(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.message.edit_text(
+        "⚠️ <b>Без доказательств</b>\n\n"
+        "Отзывы без подтверждений рассматриваются дольше и чаще возвращаются на доработку.\n\n"
+        "Рекомендуем приложить хотя бы скрин переписки или фрагмент договора.",
+        reply_markup=files_skip_confirm_kb(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(ReviewForm.evidence_files, lambda c: c.data == CB_FILES_BACK)
+async def files_skip_back(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    existing_count = int(data.get("existing_evidence_count") or 0)
+    file_ids: list[str] = data.get("file_ids", [])
+    await callback.message.edit_text(
+        "📎 <b>Доказательства</b> (необязательно, но повышают шанс публикации)\n\n"
+        f"Пришлите фото или документы — до {MAX_EVIDENCE_FILES} новых файлов за раз.\n"
+        "Файлы <b>не публикуются</b> — их видит только модератор.\n\n"
+        "Чтобы <b>загрузить</b> — отправьте файл в чат.\n"
+        "Когда всё готово — нажмите <b>«Перейти к отправке»</b>.",
+        reply_markup=files_kb(
+            len(file_ids), MAX_EVIDENCE_FILES, existing_count=existing_count
+        ),
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    ReviewForm.evidence_files,
+    lambda c: c.data in (CB_FILES_DONE, CB_FILES_SKIP_CONFIRM),
+)
 async def files_done(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(ReviewForm.confirmation)
     data = await state.get_data()
@@ -894,6 +969,15 @@ def _guess_mime(file_name: str) -> str:
 
 async def _build_summary(data: dict) -> str:
     target = TARGET_TYPE_LABELS.get(data.get("target_type", ""), "—")
+    new_files = len(data.get("file_ids", []))
+    existing_files = int(data.get("existing_evidence_count") or 0)
+    total_files = existing_files + new_files
+    if total_files:
+        evidence_line = f"<b>Доказательства:</b> {total_files} файл(ов)"
+        if existing_files and new_files:
+            evidence_line += f" ({existing_files} было + {new_files} новых)"
+    else:
+        evidence_line = "<b>Доказательства:</b> не приложены"
     lines = [
         f"<b>Тип:</b> {target}",
         f"<b>Город:</b> {data.get('city', '—')}",
@@ -903,7 +987,7 @@ async def _build_summary(data: dict) -> str:
         f"<b>Имя на сайте:</b> {data.get('author_display_name', '—')}",
         f"<b>Заголовок:</b> {data.get('public_title', '—')}",
         f"<b>Текст:</b> {data.get('public_text', '—')}",
-        f"<b>Файлов:</b> {len(data.get('file_ids', []))}",
+        evidence_line,
     ]
     if data.get("private_text"):
         lines.append("<b>Приватный комментарий:</b> (будет виден только модератору)")

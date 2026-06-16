@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.config import STATUS_LABELS, TARGET_TYPE_LABELS
+from bot.moderation_reasons import MODERATION_REASONS
 
 CB_MAIN_REVIEW = "menu:review"
 CB_MAIN_MY = "menu:my"
@@ -11,12 +12,17 @@ CB_SKIP = "flow:skip"
 CB_CATALOG_PREFIX = "cat:"
 CB_CATALOG_PAGE_PREFIX = "catpage:"
 CB_FILES_DONE = "flow:files_done"
+CB_FILES_ADD_MORE = "flow:files_add_more"
+CB_FILES_SKIP = "flow:files_skip"
+CB_FILES_SKIP_CONFIRM = "flow:files_skip_confirm"
+CB_FILES_BACK = "flow:files_back"
 CB_CONFIRM_SEND = "flow:confirm_send"
 CB_CONFIRM_EDIT = "flow:confirm_edit"
 
 CB_TARGET_PREFIX = "target:"
 CB_RATING_PREFIX = "rating:"
 CB_MOD_PREFIX = "mod:"
+CB_MOD_REASON_PREFIX = "modr:"
 CB_VIEW_REVIEW_PREFIX = "view:"
 CB_MY_REVIEW_PREFIX = "my:"
 CB_RESUBMIT_PREFIX = "resubmit:"
@@ -121,13 +127,93 @@ def catalog_kb(
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
-def files_kb(count: int, max_files: int) -> InlineKeyboardMarkup:
+def files_kb(
+    count: int,
+    max_files: int,
+    *,
+    existing_count: int = 0,
+) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    total = existing_count + count
+    can_add_more = count < max_files
+
+    if count > 0 or existing_count > 0:
+        if total:
+            submit_label = f"✅ Перейти к отправке ({total} файл(ов))"
+        else:
+            submit_label = "✅ Перейти к отправке"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=submit_label,
+                    callback_data=CB_FILES_DONE,
+                )
+            ]
+        )
+        if can_add_more:
+            remaining = max_files - count
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"📎 Загрузить ещё (осталось {remaining})",
+                        callback_data=CB_FILES_ADD_MORE,
+                    )
+                ]
+            )
+    else:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="Отправить без доказательств",
+                    callback_data=CB_FILES_SKIP,
+                )
+            ]
+        )
+
+    rows.append([InlineKeyboardButton(text="Отмена", callback_data=CB_CANCEL)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def files_skip_confirm_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=f"Готово ({count}/{max_files})", callback_data=CB_FILES_DONE)],
+            [
+                InlineKeyboardButton(
+                    text="Отправить без доказательств",
+                    callback_data=CB_FILES_SKIP_CONFIRM,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📎 Загрузить доказательства",
+                    callback_data=CB_FILES_BACK,
+                )
+            ],
             [InlineKeyboardButton(text="Отмена", callback_data=CB_CANCEL)],
         ]
     )
+
+
+def moderation_reasons_kb(review_id: str, action: str) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    for code, label in MODERATION_REASONS:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=label,
+                    callback_data=f"{CB_MOD_REASON_PREFIX}{review_id}:{action}:{code}",
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="Назад",
+                callback_data=f"{CB_VIEW_REVIEW_PREFIX}{review_id}",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def confirm_kb() -> InlineKeyboardMarkup:

@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from bot.config import STATUS_LABELS, TARGET_TYPE_LABELS
-from bot.db import get_or_create_user, get_review, get_user_reviews
+from bot.db import get_or_create_user, get_review, get_user_reviews, count_evidence_files
 from bot.keyboards import (
     CB_MY_REVIEW_PREFIX,
     CB_RESUBMIT_PREFIX,
@@ -88,6 +88,9 @@ def _format_review_card(review: dict, *, include_private: bool = False) -> str:
         lines.append(f"<b>Приватный комментарий:</b>\n{review['private_text']}")
     if review.get("moderation_notes"):
         lines.append(f"<b>Комментарий модератора:</b>\n{review['moderation_notes']}")
+    evidence_count = count_evidence_files(review["id"])
+    if evidence_count:
+        lines.append(f"<b>Доказательств:</b> {evidence_count} файл(ов)")
     return "\n".join(lines)
 
 

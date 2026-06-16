@@ -153,6 +153,17 @@ def attach_file(
     return result.data[0]
 
 
+def count_evidence_files(review_id: str) -> int:
+    client = get_client()
+    result = (
+        client.table("evidence_files")
+        .select("id", count="exact", head=True)
+        .eq("review_id", review_id)
+        .execute()
+    )
+    return int(result.count or 0)
+
+
 # ---------------------------------------------------------------------------
 # Справочники: города, районы, типы жилья
 # ---------------------------------------------------------------------------
