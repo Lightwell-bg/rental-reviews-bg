@@ -1,3 +1,8 @@
+import { headers } from "next/headers";
+
+import { AnalyticsHeadScripts } from "@/components/AnalyticsScripts";
+import { getAnalyticsSettings } from "@/lib/siteSettings";
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
@@ -26,16 +31,30 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+function isPublicSitePath(pathname: string): boolean {
+  return !pathname.startsWith("/admin");
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headerStore = await headers();
+  const pathname = headerStore.get("x-pathname") ?? "";
+  const analytics =
+    pathname && isPublicSitePath(pathname)
+      ? await getAnalyticsSettings()
+      : { head: "", body: "" };
+
   return (
     <html
       lang="ru"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <AnalyticsHeadScripts html={analytics.head} />
+      </head>
       <body className="min-h-full font-sans text-zinc-900">{children}</body>
     </html>
   );

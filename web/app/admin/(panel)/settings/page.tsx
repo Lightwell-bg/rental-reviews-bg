@@ -67,10 +67,13 @@ export default async function AdminSettingsPage() {
             Google Analytics / gtag — обычно в поле <strong>head</strong>.
           </li>
           <li>
-            Яндекс.Метрика — часто в <strong>body</strong> (иногда оба блока
-            из инструкции).
+            Яндекс.Метрика — вставьте весь код в поле <strong>head</strong> (скрипт
+            появится в исходном HTML страницы).
           </li>
-          <li>После сохранения проверьте исходный код страницы на сайте.</li>
+          <li>
+            После сохранения откройте «Просмотр кода страницы» — должен быть виден
+            тег <code>&lt;script&gt;</code> счётчика.
+          </li>
         </ul>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { createServerClient } from "@/lib/supabase/server";
 
 export const ANALYTICS_KEYS = ["analytics_head", "analytics_body"] as const;
@@ -14,7 +16,7 @@ const KEY_TO_FIELD: Record<AnalyticsKey, keyof AnalyticsSettings> = {
   analytics_body: "body",
 };
 
-export async function getAnalyticsSettings(): Promise<AnalyticsSettings> {
+export const getAnalyticsSettings = cache(async (): Promise<AnalyticsSettings> => {
   const defaults: AnalyticsSettings = { head: "", body: "" };
 
   try {
@@ -40,7 +42,7 @@ export async function getAnalyticsSettings(): Promise<AnalyticsSettings> {
   } catch {
     return defaults;
   }
-}
+});
 
 export async function getAllSiteSettings(): Promise<
   Array<{ key: string; value: string; label: string | null }>

@@ -11,11 +11,23 @@ async function createSessionToken(secret: string): Promise<string> {
     .join("");
 }
 
+function withPathname(request: NextRequest): NextResponse {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (!pathname.startsWith("/admin")) {
+    return withPathname(request);
+  }
+
   if (pathname === "/admin/login") {
-    return NextResponse.next();
+    return withPathname(request);
   }
 
   const secret = process.env.ADMIN_SECRET;
@@ -32,9 +44,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return withPathname(request);
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/((?!login).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };
