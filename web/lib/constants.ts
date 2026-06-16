@@ -14,5 +14,9 @@ export const RATING_OPTIONS = [5, 4, 3, 2, 1] as const;
 
 export const SITE_NAME = "Rental Reviews BG";
 
+export const CENTERAI_URL = "https://centerai.eu/ru/";
+export const CENTERAI_NAME = "CenterAI";
+export const CENTERAI_TAGLINE = "центр AI-автоматизаций для бизнеса";
+
 export const TELEGRAM_BOT_LINK =
   process.env.NEXT_PUBLIC_TELEGRAM_BOT_LINK ?? "https://t.me/";

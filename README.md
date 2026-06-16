@@ -18,6 +18,7 @@
 ```
 rental-reviews-bg/
 ├── web/                 # Next.js сайт
+│   └── public/          # logo.svg, icon.svg (фавикон), centerai-logo.png
 ├── bot/                 # Telegram-бот
 ├── supabase/
 │   ├── migrations/      # SQL-схема
@@ -98,6 +99,8 @@ STORAGE_BUCKET=review-attachments
    - `supabase/policies/002_rls_policies.sql`
    - `supabase/migrations/004_catalog_locations.sql` (справочники городов/районов/типов жилья для бота)
    - `supabase/policies/004_catalog_rls.sql`
+   - `supabase/migrations/005_site_settings.sql` (счётчики аналитики для сайта)
+   - `supabase/policies/005_site_settings_rls.sql`
 3. **Storage** → New bucket → имя `review-attachments` → **Private**.
 
 ### 4. Сайт (web)
@@ -190,6 +193,17 @@ pytest
 | `/admin/reviews/[id]` | Карточка отзыва + модерация |
 | `/admin/reports` | Жалобы на отзывы |
 | `/admin/replies` | Ответы второй стороны |
+| `/admin/settings` | Счётчики и аналитика (Google Analytics, Метрика, GTM) |
+
+### Счётчики и аналитика
+
+В `/admin/settings` можно вставить HTML/JS-код счётчиков в два поля:
+
+- **Код в `<head>`** — Google Analytics, GTM, Meta Pixel
+- **Код перед `</body>`** — Яндекс.Метрика, noscript GTM, виджеты
+
+Код подключается на публичных страницах автоматически, без правки репозитория.  
+Требуется миграция `005_site_settings.sql` + `005_site_settings_rls.sql`.
 
 ### Настройка ADMIN_SECRET
 

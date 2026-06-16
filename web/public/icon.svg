@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="Rental Reviews BG">
+  <rect width="32" height="32" rx="8" fill="#047857"/>
+  <path d="M16 7L8 13.5V24h6v-5h4v5h6V13.5L16 7z" fill="#fff"/>
+  <circle cx="23" cy="10" r="4.5" fill="#a7f3d0"/>
+  <path d="M21.2 10l1.2 1.2 2.6-2.6" stroke="#047857" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

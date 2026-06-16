@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/BrandLogo";
 import { logoutAdmin } from "@/lib/admin/login";
 
 const links = [
@@ -7,13 +8,14 @@ const links = [
   { href: "/admin/reviews", label: "Отзывы" },
   { href: "/admin/reports", label: "Жалобы" },
   { href: "/admin/replies", label: "Ответы" },
+  { href: "/admin/settings", label: "Аналитика" },
 ];
 
 export function AdminNav() {
   return (
     <header className="border-b border-zinc-300 bg-zinc-900 text-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <div className="font-semibold">Админка</div>
+        <BrandLogo showWordmark={false} className="[&_img]:brightness-110" />
         <nav className="flex flex-wrap gap-4 text-sm">
           {links.map((l) => (
             <Link

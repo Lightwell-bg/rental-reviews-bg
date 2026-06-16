@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   },
   description:
     "Проверенные отзывы об опыте аренды недвижимости в Болгарии",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({

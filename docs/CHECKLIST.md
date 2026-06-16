@@ -9,6 +9,9 @@
 - [ ] Выполнен `supabase/policies/003_fix_public_access.sql` (если сайт выдаёт `permission denied for table reviews`)
 - [ ] Выполнен `supabase/migrations/004_catalog_locations.sql`
 - [ ] Выполнен `supabase/policies/004_catalog_rls.sql`
+- [ ] Выполнен `supabase/migrations/005_site_settings.sql`
+- [ ] Выполнен `supabase/policies/005_site_settings_rls.sql`
+- [ ] Таблица `site_settings` содержит ключи `analytics_head`, `analytics_body`
 - [ ] Создан Storage bucket `review-attachments` (Private)
 
 Проверка таблиц в SQL Editor:
