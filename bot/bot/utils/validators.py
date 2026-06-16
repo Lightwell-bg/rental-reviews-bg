@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 
 MIN_PUBLIC_TEXT_LEN = 30
 MIN_PUBLIC_TITLE_LEN = 5
+MIN_DISPLAY_NAME_LEN = 2
+MAX_DISPLAY_NAME_LEN = 60
 
 PHONE_RE = re.compile(
     r"(?:\+?\d{1,3}[\s\-]?)?(?:\(?\d{2,4}\)?[\s\-]?)?(?:\d{4}[\s\-]?\d{3}[\s\-]?\d{3}|\d{3}[\s\-]?\d{2}[\s\-]?\d{2,3})"
@@ -82,6 +84,28 @@ def has_sensitive_id_data(text: str) -> bool:
     return bool(
         EGN_RE.search(text) or LNC_RE.search(text) or PASSPORT_RE.search(text)
     )
+
+
+def validate_display_name(name: str) -> ValidationResult:
+    result = ValidationResult()
+    cleaned = name.strip()
+
+    if len(cleaned) < MIN_DISPLAY_NAME_LEN:
+        result.warnings.append(
+            f"Имя слишком короткое (минимум {MIN_DISPLAY_NAME_LEN} символа)."
+        )
+    if len(cleaned) > MAX_DISPLAY_NAME_LEN:
+        result.warnings.append(
+            f"Имя слишком длинное (максимум {MAX_DISPLAY_NAME_LEN} символов)."
+        )
+    if PHONE_RE.search(cleaned):
+        result.warnings.append("В имени не должно быть телефона.")
+    if EMAIL_RE.search(cleaned):
+        result.warnings.append("В имени не должно быть email.")
+    if EGN_RE.search(cleaned) or LNC_RE.search(cleaned):
+        result.warnings.append("В имени не должно быть идентификаторов (ЕГН, ЛНЧ).")
+
+    return result
 
 
 def validate_public_text(title: str, text: str) -> ValidationResult:

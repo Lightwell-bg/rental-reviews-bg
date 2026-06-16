@@ -20,11 +20,7 @@ export default async function AdminSettingsPage() {
         <p className="mt-2 text-red-700">
           Примените миграцию{" "}
           <code className="rounded bg-red-100 px-1">
-            supabase/migrations/005_site_settings.sql
-          </code>{" "}
-          и{" "}
-          <code className="rounded bg-red-100 px-1">
-            supabase/policies/005_site_settings_rls.sql
+            supabase/migrations/001_init.sql
           </code>{" "}
           в Supabase SQL Editor.
         </p>

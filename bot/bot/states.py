@@ -10,6 +10,7 @@ class ReviewForm(StatesGroup):
     property_type = State()
     property_type_manual = State()
     rating = State()
+    author_display_name = State()
     public_title = State()
     public_text = State()
     private_text = State()

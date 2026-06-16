@@ -21,8 +21,7 @@ rental-reviews-bg/
 │   └── public/          # logo.svg, icon.svg (фавикон), centerai-logo.png
 ├── bot/                 # Telegram-бот
 ├── supabase/
-│   ├── migrations/      # SQL-схема
-│   └── policies/        # RLS-политики
+│   └── migrations/      # SQL: схема, RLS, справочники
 ├── docs/                # Документация
 ├── docker-compose.yml   # Только для продакшена на сервере
 ├── .env.example
@@ -94,13 +93,7 @@ STORAGE_BUCKET=review-attachments
 Кратко:
 
 1. Создайте проект на [supabase.com](https://supabase.com).
-2. **SQL Editor** → выполните по очереди:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/policies/002_rls_policies.sql`
-   - `supabase/migrations/004_catalog_locations.sql` (справочники городов/районов/типов жилья для бота)
-   - `supabase/policies/004_catalog_rls.sql`
-   - `supabase/migrations/005_site_settings.sql` (счётчики аналитики для сайта)
-   - `supabase/policies/005_site_settings_rls.sql`
+2. **SQL Editor** → выполните **один** файл: `supabase/migrations/001_init.sql`
 3. **Storage** → New bucket → имя `review-attachments` → **Private**.
 
 ### 4. Сайт (web)
@@ -203,7 +196,7 @@ pytest
 - **Код перед `</body>`** — Яндекс.Метрика, noscript GTM, виджеты
 
 Код подключается на публичных страницах автоматически, без правки репозитория.  
-Требуется миграция `005_site_settings.sql` + `005_site_settings_rls.sql`.
+Требуется миграция `001_init.sql` (таблица `site_settings` внутри).
 
 ### Настройка ADMIN_SECRET
 
@@ -307,7 +300,7 @@ pytest
 | `/admin` — доступ запрещён (Telegram) | Узнайте свой Telegram ID через [@userinfobot](https://t.me/userinfobot), добавьте в `ADMIN_TELEGRAM_IDS` |
 | `/admin` — редирект на login (сайт) | Задайте `ADMIN_SECRET` в `web/.env.local`, войдите на `/admin/login` |
 | Админка: ошибка service role | Скопируйте `SUPABASE_SERVICE_ROLE_KEY` в `web/.env.local` (без `NEXT_PUBLIC`) |
-| Сайт: `permission denied for table reviews` | В Supabase SQL Editor выполните `supabase/policies/003_fix_public_access.sql` |
+| Сайт: `permission denied for table reviews` | Перевыполните блок VIEW в `supabase/migrations/001_init.sql` или `upgrade_legacy.sql` |
 
 ---
 

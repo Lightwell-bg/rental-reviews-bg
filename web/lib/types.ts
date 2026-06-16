@@ -4,6 +4,7 @@ export type ReviewPublic = {
   city: string;
   district: string | null;
   property_type: string | null;
+  author_display_name: string | null;
   public_title: string | null;
   public_text: string | null;
   rating: number | null;

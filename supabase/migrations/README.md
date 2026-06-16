@@ -1,23 +1,21 @@
 # SQL-миграции
 
-Применяются **один раз** через Supabase Dashboard (с Windows, браузер).
+## Новый проект — один файл
 
-## Порядок
+Supabase Dashboard → **SQL Editor** → скопировать и выполнить:
 
-1. [supabase.com](https://supabase.com) → ваш проект → **SQL Editor**
-2. Выполнить `001_initial_schema.sql`
-3. Выполнить `../policies/002_rls_policies.sql`
+**`001_init.sql`**
 
-Подробная инструкция: [docs/DEPLOY.md — Supabase](../docs/DEPLOY.md#12-supabase--база-данных-и-storage)
+Содержит всё: таблицы, RLS, публичные VIEW, справочники, `site_settings`.
 
-## Файлы
+После этого создайте Storage bucket `review-attachments` (Private).
 
-| Файл | Описание |
-|------|----------|
-| `001_initial_schema.sql` | Таблицы: users, reviews, subjects, evidence_files, moderation_logs, reports, replies |
+## Уже развёрнутая БД (старая схема)
 
-## Соглашения
+Если проект создан до объединения миграций и нет полей `author_*` в `reviews`:
 
-- Имена: `001_...`, `002_...`
-- RLS-политики — в `../policies/`
-- На prod повторите те же файлы в отдельном Supabase-проекте (если используете dev/prod разделение)
+**`upgrade_legacy.sql`**
+
+Повторный запуск безопасен (`IF NOT EXISTS`, `DROP VIEW`).
+
+Подробнее: [docs/DEPLOY.md — Supabase](../../docs/DEPLOY.md#12-supabase--база-данных-и-storage)

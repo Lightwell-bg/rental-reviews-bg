@@ -76,6 +76,19 @@ def get_user_by_id(user_id: str) -> dict[str, Any] | None:
     return result.data[0] if result.data else None
 
 
+def author_telegram_snapshot(
+    *,
+    telegram_id: int,
+    username: str | None = None,
+    full_name: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "author_telegram_id": telegram_id,
+        "author_telegram_username": username,
+        "author_telegram_name": full_name,
+    }
+
+
 def create_review(author_id: str, data: dict[str, Any]) -> dict[str, Any]:
     client = get_client()
     payload = {
@@ -84,6 +97,7 @@ def create_review(author_id: str, data: dict[str, Any]) -> dict[str, Any]:
         "city": data["city"],
         "district": data.get("district"),
         "property_type": data.get("property_type"),
+        "author_display_name": data.get("author_display_name"),
         "public_title": data.get("public_title"),
         "public_text": data.get("public_text"),
         "private_text": data.get("private_text"),
@@ -91,6 +105,14 @@ def create_review(author_id: str, data: dict[str, Any]) -> dict[str, Any]:
         "status": data.get("status", "draft"),
         "ai_flags": data.get("ai_flags", {}),
     }
+    if data.get("author_telegram_id") is not None:
+        payload.update(
+            author_telegram_snapshot(
+                telegram_id=data["author_telegram_id"],
+                username=data.get("author_telegram_username"),
+                full_name=data.get("author_telegram_name"),
+            )
+        )
     result = client.table("reviews").insert(payload).execute()
     return result.data[0]
 

@@ -162,10 +162,25 @@ async def admin_moderate(callback: CallbackQuery) -> None:
         await callback.answer("Ошибка при сохранении", show_alert=True)
 
 
+def _format_author_admin_block(review: dict) -> str:
+    username = review.get("author_telegram_username")
+    username_label = f"@{username}" if username else "—"
+    lines = [
+        "",
+        "<b>Автор</b>",
+        f"Имя на сайте: {review.get('author_display_name') or '—'}",
+        f"Telegram ID: <code>{review.get('author_telegram_id') or '—'}</code>",
+        f"Имя в Telegram: {review.get('author_telegram_name') or '—'}",
+        f"Username: {username_label}",
+    ]
+    return "\n".join(lines)
+
+
 def _format_admin_review_card(review: dict) -> str:
     base = _format_review_card(review, include_private=True)
     target = TARGET_TYPE_LABELS.get(review.get("target_type", ""), "—")
     extra = [
+        _format_author_admin_block(review),
         "",
         "<b>Модерация</b>",
         f"Тип: {target}",

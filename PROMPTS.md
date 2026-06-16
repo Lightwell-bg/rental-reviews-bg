@@ -9,7 +9,7 @@
 - таблица properties (адрес, город, нормализованный ключ поиска)
 - таблица reviews (тип tenant_review | landlord_review, текст, статус модерации, property_id, telegram_user_id)
 - индексы для поиска по адресу, не по ФИО
-Добавь RLS-политики в supabase/policies/
+Добавь RLS-политики в тот же файл миграции или в `supabase/migrations/00N_...sql`
 ```
 
 ## Этап 2: Сценарий бота — подача отзыва

@@ -66,9 +66,16 @@ export default async function ReviewDetailPage({
 
       <article className="mt-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-zinc-900">
-            {review.public_title || "Без заголовка"}
-          </h1>
+          <div>
+            {review.author_display_name && (
+              <p className="text-sm font-medium text-zinc-500">
+                {review.author_display_name}
+              </p>
+            )}
+            <h1 className="text-2xl font-semibold text-zinc-900">
+              {review.public_title || "Без заголовка"}
+            </h1>
+          </div>
           <Stars rating={review.rating} />
         </div>
 

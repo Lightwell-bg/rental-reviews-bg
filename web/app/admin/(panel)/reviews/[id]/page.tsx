@@ -68,6 +68,7 @@ export default async function AdminReviewDetailPage({
         <h2 className="font-semibold">Публичные поля</h2>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="ID" value={review.id} mono />
+          <Field label="Имя на сайте" value={review.author_display_name} />
           <Field label="Тип" value={typeLabel} />
           <Field label="Город" value={review.city} />
           <Field label="Район" value={review.district} />
@@ -98,6 +99,22 @@ export default async function AdminReviewDetailPage({
           <Field
             label="moderation_notes"
             value={review.moderation_notes}
+          />
+        </dl>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-6">
+        <h2 className="font-semibold text-slate-900">Автор (служебно)</h2>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Field label="Telegram ID" value={review.author_telegram_id} mono />
+          <Field label="Имя в Telegram" value={review.author_telegram_name} />
+          <Field
+            label="Username"
+            value={
+              review.author_telegram_username
+                ? `@${review.author_telegram_username}`
+                : null
+            }
           />
         </dl>
       </section>

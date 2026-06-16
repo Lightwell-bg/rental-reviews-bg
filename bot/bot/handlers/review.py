@@ -50,7 +50,7 @@ from bot.keyboards import (
 from bot.states import ReviewForm
 from bot.utils.ai_moderation import analyze_review_for_moderation, format_ai_flags_for_admin
 from bot.utils.catalog import normalize_catalog_name, validate_catalog_label
-from bot.utils.validators import validate_public_text
+from bot.utils.validators import validate_display_name, validate_public_text
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +124,9 @@ async def begin_resubmit_flow(
         public_title=review.get("public_title"),
         public_text=review.get("public_text"),
         private_text=review.get("private_text"),
+        author_display_name=review.get("author_display_name"),
     )
-    await state.set_state(ReviewForm.public_title)
+    await state.set_state(ReviewForm.author_display_name)
 
     lines = [
         "<b>Исправление заявки</b>",
@@ -134,7 +135,10 @@ async def begin_resubmit_flow(
     if review.get("moderation_notes"):
         lines.append(f"<b>Что исправить:</b>\n{html_escape(str(review['moderation_notes']))}")
     lines.append(_format_previous_review_content(review))
-    lines.append("Отправьте исправленный <b>публичный заголовок</b>:")
+    lines.append(
+        f"Текущее имя на сайте: <i>{html_escape(str(review.get('author_display_name') or '—'))}</i>\n\n"
+        "Отправьте <b>имя или псевдоним</b>, которое будет указано в отзыве на сайте:"
+    )
     await callback.message.edit_text("\n\n".join(lines), reply_markup=cancel_kb())
     await callback.answer()
 
@@ -581,12 +585,35 @@ async def process_property_type_manual(message: Message, state: FSMContext) -> N
 async def process_rating(callback: CallbackQuery, state: FSMContext) -> None:
     rating = int(callback.data.removeprefix(CB_RATING_PREFIX))
     await state.update_data(rating=rating)
-    await state.set_state(ReviewForm.public_title)
+    await state.set_state(ReviewForm.author_display_name)
     await callback.message.edit_text(
-        "Введите <b>публичный заголовок</b> отзыва:",
+        "Как указать вас в отзыве на сайте?\n\n"
+        "Отправьте <b>имя или псевдоним</b> (ФИО не обязательно).\n"
+        "Это имя увидят посетители сайта.",
         reply_markup=cancel_kb(),
     )
     await callback.answer()
+
+
+@router.message(ReviewForm.author_display_name)
+async def process_author_display_name(message: Message, state: FSMContext) -> None:
+    name = (message.text or "").strip()
+    validation = validate_display_name(name)
+    if validation.has_risk:
+        warnings = "\n".join(f"• {w}" for w in validation.warnings)
+        await message.answer(
+            f"<b>Проверьте имя:</b>\n{warnings}",
+            reply_markup=cancel_kb(),
+        )
+        return
+
+    await state.update_data(author_display_name=name)
+    await state.set_state(ReviewForm.public_title)
+    await message.answer(
+        f"Имя на сайте: <b>{html_escape(name)}</b>\n\n"
+        "Введите <b>публичный заголовок</b> отзыва:",
+        reply_markup=cancel_kb(),
+    )
 
 
 @router.message(ReviewForm.public_title)
@@ -720,15 +747,19 @@ async def files_done(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(ReviewForm.confirmation, lambda c: c.data == CB_CONFIRM_EDIT)
 async def confirm_edit(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
-    await state.set_state(ReviewForm.public_title)
+    await state.set_state(ReviewForm.author_display_name)
     if data.get("resubmit_review_id"):
         text = (
             "<b>Исправление заявки</b>\n\n"
             f"{_format_previous_review_content(data)}\n\n"
-            "Отправьте исправленный <b>публичный заголовок</b>:"
+            f"Текущее имя на сайте: <i>{html_escape(str(data.get('author_display_name') or '—'))}</i>\n\n"
+            "Отправьте <b>имя или псевдоним</b> для сайта:"
         )
     else:
-        text = "Введите <b>публичный заголовок</b> заново:"
+        text = (
+            f"Текущее имя на сайте: <i>{html_escape(str(data.get('author_display_name') or '—'))}</i>\n\n"
+            "Отправьте <b>имя или псевдоним</b> заново:"
+        )
     await callback.message.edit_text(text, reply_markup=cancel_kb())
     await callback.answer()
 
@@ -773,6 +804,10 @@ async def confirm_send(callback: CallbackQuery, state: FSMContext, bot: Bot) -> 
             review = update_review(
                 resubmit_id,
                 {
+                    "author_display_name": data.get("author_display_name"),
+                    "author_telegram_id": callback.from_user.id,
+                    "author_telegram_username": callback.from_user.username,
+                    "author_telegram_name": callback.from_user.full_name,
                     "public_title": data.get("public_title"),
                     "public_text": data.get("public_text"),
                     "private_text": data.get("private_text"),
@@ -798,6 +833,9 @@ async def confirm_send(callback: CallbackQuery, state: FSMContext, bot: Bot) -> 
                 app_user["id"],
                 {
                     **data,
+                    "author_telegram_id": callback.from_user.id,
+                    "author_telegram_username": callback.from_user.username,
+                    "author_telegram_name": callback.from_user.full_name,
                     "status": "pending",
                     "ai_flags": ai_flags,
                 },
@@ -862,6 +900,7 @@ async def _build_summary(data: dict) -> str:
         f"<b>Район:</b> {data.get('district') or '—'}",
         f"<b>Жильё:</b> {data.get('property_type') or '—'}",
         f"<b>Оценка:</b> {data.get('rating', '—')}/5",
+        f"<b>Имя на сайте:</b> {data.get('author_display_name', '—')}",
         f"<b>Заголовок:</b> {data.get('public_title', '—')}",
         f"<b>Текст:</b> {data.get('public_text', '—')}",
         f"<b>Файлов:</b> {len(data.get('file_ids', []))}",
@@ -890,7 +929,10 @@ async def _notify_admins(
         f"Тип: {target}\n"
         f"Город: {review.get('city')}\n"
         f"Заголовок: {review.get('public_title')}\n"
-        f"Автор: {author.get('full_name') or author.get('username') or author.get('telegram_id')}\n"
+        f"Автор на сайте: {review.get('author_display_name') or '—'}\n"
+        f"Telegram ID: <code>{review.get('author_telegram_id') or author.get('telegram_id') or '—'}</code>\n"
+        f"Имя в Telegram: {review.get('author_telegram_name') or author.get('full_name') or '—'}\n"
+        f"Username: @{review.get('author_telegram_username') or author.get('username') or '—'}\n"
         f"{format_ai_flags_for_admin(review.get('ai_flags'))}\n\n"
         "Откройте /admin для проверки."
     )

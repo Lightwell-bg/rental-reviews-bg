@@ -76,6 +76,7 @@ def _format_review_card(review: dict, *, include_private: bool = False) -> str:
     lines = [
         f"<b>Заявка</b> <code>{review['id']}</code>",
         f"<b>Статус:</b> {status}",
+        f"<b>Имя на сайте:</b> {review.get('author_display_name') or '—'}",
         f"<b>Тип:</b> {target}",
         f"<b>Город:</b> {review.get('city', '—')}",
         f"<b>Район:</b> {review.get('district') or '—'}",

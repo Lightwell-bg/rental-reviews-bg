@@ -1,6 +1,6 @@
 """Тесты валидации публичного текста отзыва."""
 
-from bot.utils.validators import validate_public_text
+from bot.utils.validators import validate_display_name, validate_public_text
 
 _NORMAL_TITLE = "Хорошая квартира"
 _NORMAL_TEXT = (
@@ -48,3 +48,13 @@ def test_passes_normal_text() -> None:
     result = validate_public_text(_NORMAL_TITLE, _NORMAL_TEXT)
     assert not result.has_risk
     assert result.warnings == []
+
+
+def test_display_name_accepts_pseudonym() -> None:
+    result = validate_display_name("Арендатор_София")
+    assert not result.has_risk
+
+
+def test_display_name_rejects_phone() -> None:
+    result = validate_display_name("Иван 0888123456")
+    assert result.has_risk

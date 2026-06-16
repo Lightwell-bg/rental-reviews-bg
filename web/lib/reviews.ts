@@ -9,7 +9,7 @@ export async function getApprovedReviews(
     let query = supabase
       .from("reviews_public")
       .select(
-        "id, target_type, city, district, property_type, public_title, public_text, rating, created_at, published_at"
+        "id, target_type, city, district, property_type, author_display_name, public_title, public_text, rating, created_at, published_at"
       )
       .order("published_at", { ascending: false, nullsFirst: false });
 
@@ -47,7 +47,7 @@ export async function getApprovedReviewById(
     const { data, error } = await supabase
       .from("reviews_public")
       .select(
-        "id, target_type, city, district, property_type, public_title, public_text, rating, created_at, published_at"
+        "id, target_type, city, district, property_type, author_display_name, public_title, public_text, rating, created_at, published_at"
       )
       .eq("id", id)
       .maybeSingle();
