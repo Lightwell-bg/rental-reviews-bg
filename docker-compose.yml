@@ -1,0 +1,7 @@
+services:
+  bot:
+    build: ./bot
+    container_name: rental-reviews-bot
+    env_file: .env
+    restart: unless-stopped
+    working_dir: /app

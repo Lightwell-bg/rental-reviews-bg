@@ -1,0 +1,309 @@
+# Rental Reviews BG
+
+Площадка проверенных отзывов об опыте аренды недвижимости в Болгарии. Отзывы подаются через Telegram-бот, публикуются на сайте после **ручной модерации**.
+
+Типы отзывов: `property`, `landlord`, `tenant`, `agency`, `management_company`. Публичный поиск — по объекту, городу или организации, **не по ФИО** физических лиц.
+
+## Стек
+
+| Компонент | Технологии | Где работает |
+|-----------|------------|--------------|
+| Сайт | Next.js, TypeScript, Tailwind CSS | Windows (dev) → Vercel / Cloudflare Pages (prod) |
+| Telegram-бот | Python 3.12, aiogram 3 | Windows (dev) → VPS + Docker (prod) |
+| База данных | Supabase PostgreSQL | Облако Supabase |
+| Файлы | Supabase Storage | Облако Supabase |
+
+## Структура проекта
+
+```
+rental-reviews-bg/
+├── web/                 # Next.js сайт
+├── bot/                 # Telegram-бот
+├── supabase/
+│   ├── migrations/      # SQL-схема
+│   └── policies/        # RLS-политики
+├── docs/                # Документация
+├── docker-compose.yml   # Только для продакшена на сервере
+├── .env.example
+└── PROMPTS.md
+```
+
+## Порядок работы
+
+```
+Этап 1 — Windows (разработка)          Этап 2 — Сервер (продакшен)
+─────────────────────────────          ────────────────────────────
+Установить Node, Python, Git           VPS Ubuntu + Docker
+Подключить Supabase (облако)    →      Vercel / Cloudflare Pages
+Создать бота в @BotFather              Тот же или отдельный Supabase
+Заполнить .env                         Перенести секреты в env платформ
+npm run dev + python -m bot.main       docker compose up -d
+```
+
+**Сначала всё настраивается и проверяется локально на Windows.** Docker и VPS нужны только когда бот готов к постоянной работе 24/7.
+
+---
+
+## Быстрый старт на Windows
+
+### Что установить
+
+| Программа | Версия | Зачем |
+|-----------|--------|-------|
+| [Git](https://git-scm.com/download/win) | актуальная | репозиторий |
+| [Node.js LTS](https://nodejs.org/) | 20+ | сайт (`web/`) |
+| [Python](https://www.python.org/downloads/) | 3.12 | бот (`bot/`) |
+| [Cursor](https://cursor.com/) или VS Code | — | редактор |
+
+При установке Python отметьте **«Add Python to PATH»**.
+
+Терминал: **Git Bash** (рекомендуется) или встроенный терминал Cursor.
+
+### 1. Клонировать и открыть проект
+
+```bash
+cd /d/1PythonProjects/20260616-Rent
+cd rental-reviews-bg
+```
+
+В Cursor: **File → Open Folder** → папка `rental-reviews-bg`. Новый терминал откроется в корне проекта.
+
+### 2. Переменные окружения
+
+```bash
+cp .env.example .env
+```
+
+Откройте `.env` в редакторе и заполните по инструкции в [docs/DEPLOY.md — раздел «Подключение сервисов на Windows»](docs/DEPLOY.md#1-подключение-сервисов-на-windows).
+
+Минимум для старта бота:
+
+```env
+TELEGRAM_BOT_TOKEN=...
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...
+ADMIN_TELEGRAM_IDS=ваш_telegram_id
+STORAGE_BUCKET=review-attachments
+```
+
+### 3. Supabase — схема и Storage
+
+Подробно: [docs/DEPLOY.md](docs/DEPLOY.md#12-supabase--база-данных-и-storage).
+
+Кратко:
+
+1. Создайте проект на [supabase.com](https://supabase.com).
+2. **SQL Editor** → выполните по очереди:
+   - `supabase/migrations/001_initial_schema.sql`
+   - `supabase/policies/002_rls_policies.sql`
+   - `supabase/migrations/004_catalog_locations.sql` (справочники городов/районов/типов жилья для бота)
+   - `supabase/policies/004_catalog_rls.sql`
+3. **Storage** → New bucket → имя `review-attachments` → **Private**.
+
+### 4. Сайт (web)
+
+```bash
+cd web
+npm install
+```
+
+Создайте `web/.env.local` (скопируйте из корневого `.env`):
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_TELEGRAM_BOT_LINK=https://t.me/your_bot_username
+
+# Только сервер — не попадает в браузер
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+STORAGE_BUCKET=review-attachments
+
+# Временный пароль для веб-админки (см. раздел «Админка» ниже)
+ADMIN_SECRET=длинный-случайный-пароль
+```
+
+Запуск:
+
+```bash
+npm run dev
+```
+
+Сайт: [http://localhost:3000](http://localhost:3000)
+
+Проверки:
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+**Страницы:** `/` · `/reviews` · `/reviews/[id]` · `/rules` · `/privacy` · `/report` · `/reply`
+
+**Админка:** `/admin` · `/admin/reviews` · `/admin/reports` · `/admin/replies` (см. [Админка (web)](#админка-web))
+
+### 5. Telegram-бот (bot)
+
+Из **корня** проекта:
+
+```bash
+cd bot
+python -m venv .venv
+source .venv/Scripts/activate
+pip install -r requirements.txt
+python -m bot.main
+```
+
+В консоли должно появиться: `Бот запущен (polling)`.
+
+Проверка в Telegram: `/start`, «Оставить отзыв». Для `/admin` ваш ID должен быть в `ADMIN_TELEGRAM_IDS`.
+
+Тесты (опционально, но рекомендуется):
+
+```bash
+cd bot
+source .venv/Scripts/activate
+pip install -r requirements-dev.txt
+pytest
+```
+
+> Бот читает `.env` из **корня** `rental-reviews-bg/`, не из `bot/`.
+
+### 6. Остановка
+
+- Сайт: `Ctrl+C` в терминале с `npm run dev`
+- Бот: `Ctrl+C` в терминале с `python -m bot.main`
+- Деактивация venv: `deactivate`
+
+---
+
+## Админка (web)
+
+Веб-панель модерации: [http://localhost:3000/admin](http://localhost:3000/admin)
+
+| Маршрут | Назначение |
+|---------|------------|
+| `/admin/login` | Вход по секретному паролю |
+| `/admin` | Сводка: pending/disputed отзывы, жалобы, ответы |
+| `/admin/reviews` | Список отзывов с фильтрами |
+| `/admin/reviews/[id]` | Карточка отзыва + модерация |
+| `/admin/reports` | Жалобы на отзывы |
+| `/admin/replies` | Ответы второй стороны |
+
+### Настройка ADMIN_SECRET
+
+1. В `web/.env.local` задайте длинный случайный пароль:
+
+   ```env
+   ADMIN_SECRET=ваш-длинный-секретный-пароль
+   ```
+
+2. Скопируйте из корневого `.env` в `web/.env.local` (без префикса `NEXT_PUBLIC`):
+
+   ```env
+   SUPABASE_URL=https://xxxx.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=eyJ...
+   STORAGE_BUCKET=review-attachments
+   ```
+
+3. Перезапустите `npm run dev`.
+
+4. Откройте `/admin/login`, введите `ADMIN_SECRET`. Сессия сохраняется в **httpOnly cookie** `admin_session`.
+
+> **Важно:** это **временная MVP-защита** одним общим паролем. Перед продакшеном замените на **Supabase Auth** (роли moderator/admin, RLS, аудит входов). `SUPABASE_SERVICE_ROLE_KEY` используется только на сервере (Server Components, Server Actions) и **никогда** не передаётся в клиент.
+
+### AI-подсказка модератору
+
+После отправки отзыва бот (опционально) прогоняет текст через [OpenRouter](https://openrouter.ai). Результат сохраняется в `reviews.ai_flags` и виден **только админам** (web `/admin` и Telegram `/admin`). Пользователю AI-вывод не показывается.
+
+1. Зарегистрируйтесь на [openrouter.ai](https://openrouter.ai), создайте API key.
+2. В корневом `.env`:
+   ```env
+   OPENAI_API_KEY=sk-or-v1-...
+   OPENROUTER_MODEL=openai/gpt-4o-mini:floor
+   ```
+3. Перезапустите бота.
+
+Без `OPENAI_API_KEY` отзывы по-прежнему уходят на ручную модерацию — шаг AI просто пропускается. В AI **не отправляются** файлы-доказательства; телефоны, email, ЕГН, паспорт маскируются regex-ом до запроса.
+
+---
+
+## Ручной тест MVP
+
+1. Запустить бота.
+2. Создать отзыв.
+3. Проверить запись в Supabase.
+4. Проверить уведомление админу.
+5. В web `/admin` нажать **Request changes** с комментарием — автор должен получить сообщение в Telegram.
+6. В боте: **Мои заявки** → заявка → **Исправить и отправить снова** → правки → статус снова `pending`.
+7. Одобрить отзыв.
+8. Проверить, что отзыв появился на сайте.
+9. Подать жалобу.
+10. Проверить `reports`.
+11. Подать ответ второй стороны.
+12. Одобрить `reply`.
+13. Проверить отображение `reply` на странице отзыва.
+
+## Переменные окружения
+
+| Переменная | Где нужна | Секретность |
+|------------|-----------|-------------|
+| `SUPABASE_URL` | бот, web (сервер) | публичный URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | бот, **web admin (сервер)** | **секрет**, не в браузере |
+| `SUPABASE_ANON_KEY` | web (сервер) | ограничен RLS |
+| `TELEGRAM_BOT_TOKEN` | бот; опционально **web admin** (уведомления автору) | **секрет** |
+| `ADMIN_TELEGRAM_IDS` | бот | список ID через запятую |
+| `STORAGE_BUCKET` | бот | имя bucket, по умолчанию `review-attachments` |
+| `OPENAI_API_KEY` | бот (AI-модерация) | секрет, ключ [OpenRouter](https://openrouter.ai/keys) |
+| `OPENROUTER_MODEL` | бот | модель OpenRouter, по умолчанию `openai/gpt-4o-mini:floor` |
+| `NEXT_PUBLIC_SUPABASE_URL` | web (браузер) | публичный |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | web (браузер) | публичный, RLS |
+| `NEXT_PUBLIC_TELEGRAM_BOT_LINK` | web (кнопка «Оставить отзыв») | публичный |
+| `ADMIN_SECRET` | web `/admin/login` | **секрет**, временная MVP-защита |
+
+Файл `.env` в `.gitignore` — **никогда не коммитьте** его в git.
+
+---
+
+## Деплой на сервер (когда локально всё работает)
+
+Подробная инструкция: **[docs/DEPLOY.md — Web на Vercel (2.1)](docs/DEPLOY.md#21-web--vercel)** и [бот на VPS (2.2)](docs/DEPLOY.md#22-bot--vps-ubuntu--docker).
+
+| Компонент | Платформа |
+|-----------|-----------|
+| Сайт | Vercel или Cloudflare Pages |
+| Бот | VPS Ubuntu + `docker compose up -d` |
+| База + файлы | Supabase Cloud (тот же или отдельный prod-проект) |
+
+На Windows для разработки **Docker не обязателен**. `docker-compose.yml` используется на VPS.
+
+---
+
+## Частые проблемы на Windows
+
+| Проблема | Решение |
+|----------|---------|
+| `cd bot` — No such file | Откройте терминал в корне `rental-reviews-bg`, не в `web/` |
+| `python` не найден | Переустановите Python с галочкой «Add to PATH» |
+| `source .venv/Scripts/activate` не работает | Используйте Git Bash или `.venv\Scripts\activate` в cmd |
+| Бот: `TELEGRAM_BOT_TOKEN не задан` | `.env` в **корне** проекта, не в `bot/` |
+| Бот: ошибка Supabase | Проверьте URL и service_role key, применены ли миграции |
+| Загрузка файлов в боте падает | Создан ли bucket `review-attachments` (Private) |
+| `/admin` — доступ запрещён (Telegram) | Узнайте свой Telegram ID через [@userinfobot](https://t.me/userinfobot), добавьте в `ADMIN_TELEGRAM_IDS` |
+| `/admin` — редирект на login (сайт) | Задайте `ADMIN_SECRET` в `web/.env.local`, войдите на `/admin/login` |
+| Админка: ошибка service role | Скопируйте `SUPABASE_SERVICE_ROLE_KEY` в `web/.env.local` (без `NEXT_PUBLIC`) |
+| Сайт: `permission denied for table reviews` | В Supabase SQL Editor выполните `supabase/policies/003_fix_public_access.sql` |
+
+---
+
+## Документация
+
+| Файл | Содержание |
+|------|------------|
+| [docs/DEPLOY.md](docs/DEPLOY.md) | **Подключение сервисов и деплой** (Windows → сервер) |
+| [docs/PRODUCT.md](docs/PRODUCT.md) | Продукт и сценарии |
+| [docs/MODERATION.md](docs/MODERATION.md) | Модерация |
+| [docs/PRIVACY_NOTES.md](docs/PRIVACY_NOTES.md) | Приватность |
+| [bot/README.md](bot/README.md) | Только бот |
+| [PROMPTS.md](PROMPTS.md) | Промпты для разработки |
