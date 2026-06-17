@@ -19,3 +19,4 @@ class ReviewForm(StatesGroup):
     private_text = State()
     evidence_files = State()
     confirmation = State()
+    resubmit_menu = State()

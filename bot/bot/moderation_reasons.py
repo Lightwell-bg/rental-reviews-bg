@@ -39,3 +39,52 @@ def mentions_evidence(notes: str | None) -> bool:
         or "приложите файл" in lower
         or "скрин" in lower
     )
+
+
+def suggested_resubmit_fields(notes: str | None) -> set[str]:
+    """Какие поля логично править по комментарию модератора."""
+    if not notes:
+        return {"text"}
+
+    lower = notes.lower()
+    fields: set[str] = set()
+
+    if mentions_evidence(notes):
+        fields.add("evidence")
+    if any(
+        token in lower
+        for token in (
+            "личн",
+            "personal_data",
+            "телефон",
+            "email",
+            "егн",
+            "паспорт",
+            "фио",
+        )
+    ):
+        fields.update({"text", "name", "title"})
+    if "конкретик" in lower or "needs_detail" in lower:
+        fields.add("text")
+    if "формулиров" in lower or "wording" in lower:
+        fields.add("text")
+    if "не по теме" in lower or "off_topic" in lower:
+        fields.update({"text", "title"})
+
+    if not fields:
+        fields.add("text")
+    return fields
+
+
+def resubmit_hint_lines(notes: str | None) -> list[str]:
+    fields = suggested_resubmit_fields(notes)
+    hints: list[str] = []
+    if "text" in fields:
+        hints.append("• дополните <b>текст отзыва</b> фактами, датами и деталями")
+    if "title" in fields:
+        hints.append("• при необходимости измените <b>заголовок</b>")
+    if "name" in fields:
+        hints.append("• проверьте <b>имя на сайте</b> — без личных данных")
+    if "evidence" in fields:
+        hints.append("• приложите <b>доказательства</b> (фото, переписка, договор)")
+    return hints

@@ -64,8 +64,9 @@ async def show_my_review_detail(callback: CallbackQuery) -> None:
     text = _format_review_card(review, include_private=True)
     if review.get("status") == "request_changes":
         text += (
-            "\n\n<i>Нажмите «Исправить и отправить снова», "
-            "чтобы внести правки и вернуть заявку на модерацию.</i>"
+            "\n\n<b>Как исправить:</b> нажмите «Исправить и отправить снова» — "
+            "откроется меню с кнопками: что изменить. "
+            "После правок — «Готово — отправить на модерацию»."
         )
     await callback.message.edit_text(text, reply_markup=my_review_detail_kb(review))
     await callback.answer()

@@ -14,6 +14,15 @@ def test_request_changes_message_includes_notes():
     assert "Нужны правки" in text
     assert "Уберите телефон" in text
     assert "abc-123" in text
+    assert "Исправить заявку" in text
+
+
+def test_request_changes_notify_kb_has_resubmit_button():
+    from bot.notifications import _author_notify_kb
+
+    kb = _author_notify_kb("abc-123", status="request_changes")
+    assert kb.inline_keyboard[0][0].callback_data == "resubmit:abc-123"
+    assert "Исправить" in kb.inline_keyboard[0][0].text
 
 
 def test_approved_message_without_notes():

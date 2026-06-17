@@ -10,6 +10,7 @@ def test_format_previous_review_content_shows_title_and_body():
     assert "Полный текст отзыва" in text
     assert "Текущий заголовок" in text
     assert "Текущий текст отзыва" in text
+    assert "Имя на сайте" in text
 
 
 def test_resubmit_button_only_for_request_changes():

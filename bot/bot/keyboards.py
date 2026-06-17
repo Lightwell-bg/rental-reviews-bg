@@ -26,6 +26,9 @@ CB_MOD_REASON_PREFIX = "modr:"
 CB_VIEW_REVIEW_PREFIX = "view:"
 CB_MY_REVIEW_PREFIX = "my:"
 CB_RESUBMIT_PREFIX = "resubmit:"
+CB_RESUBMIT_MENU_PREFIX = "rsmenu:"
+CB_RESUBMIT_KEEP = "flow:resubmit_keep"
+CB_RESUBMIT_BACK_MENU = "flow:resubmit_back_menu"
 
 
 def main_menu_kb() -> InlineKeyboardMarkup:
@@ -132,16 +135,25 @@ def files_kb(
     max_files: int,
     *,
     existing_count: int = 0,
+    resubmit: bool = False,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     total = existing_count + count
     can_add_more = count < max_files
 
-    if count > 0 or existing_count > 0:
+    if count > 0 or existing_count > 0 or resubmit:
         if total:
-            submit_label = f"✅ Перейти к отправке ({total} файл(ов))"
+            submit_label = (
+                f"✅ Вернуться к меню правок ({total} файл(ов))"
+                if resubmit
+                else f"✅ Перейти к отправке ({total} файл(ов))"
+            )
         else:
-            submit_label = "✅ Перейти к отправке"
+            submit_label = (
+                "✅ Вернуться к меню правок"
+                if resubmit
+                else "✅ Перейти к отправке"
+            )
         rows.append(
             [
                 InlineKeyboardButton(
@@ -166,6 +178,16 @@ def files_kb(
                 InlineKeyboardButton(
                     text="Отправить без доказательств",
                     callback_data=CB_FILES_SKIP,
+                )
+            ]
+        )
+
+    if resubmit:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="← К меню правок без файлов",
+                    callback_data=CB_RESUBMIT_BACK_MENU,
                 )
             ]
         )
@@ -213,6 +235,72 @@ def moderation_reasons_kb(review_id: str, action: str) -> InlineKeyboardMarkup:
             )
         ]
     )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def resubmit_field_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Оставить без изменений",
+                    callback_data=CB_RESUBMIT_KEEP,
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="← К меню правок",
+                    callback_data=CB_RESUBMIT_BACK_MENU,
+                )
+            ],
+            [InlineKeyboardButton(text="Отмена", callback_data=CB_CANCEL)],
+        ]
+    )
+
+
+def resubmit_menu_kb(*, suggested: set[str]) -> InlineKeyboardMarkup:
+    def label(field: str, text: str) -> str:
+        return f"👉 {text}" if field in suggested else text
+
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=label("text", "✏️ Изменить текст отзыва"),
+                callback_data=f"{CB_RESUBMIT_MENU_PREFIX}text",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=label("title", "📌 Изменить заголовок"),
+                callback_data=f"{CB_RESUBMIT_MENU_PREFIX}title",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=label("name", "👤 Изменить имя на сайте"),
+                callback_data=f"{CB_RESUBMIT_MENU_PREFIX}name",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=label("evidence", "📎 Добавить доказательства"),
+                callback_data=f"{CB_RESUBMIT_MENU_PREFIX}evidence",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="💬 Комментарий для модератора",
+                callback_data=f"{CB_RESUBMIT_MENU_PREFIX}private",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="✅ Готово — отправить на модерацию",
+                callback_data=f"{CB_RESUBMIT_MENU_PREFIX}submit",
+            )
+        ],
+        [InlineKeyboardButton(text="Отмена", callback_data=CB_CANCEL)],
+    ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

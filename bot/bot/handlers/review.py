@@ -41,6 +41,9 @@ from bot.keyboards import (
     CB_FILES_SKIP,
     CB_FILES_SKIP_CONFIRM,
     CB_RATING_PREFIX,
+    CB_RESUBMIT_BACK_MENU,
+    CB_RESUBMIT_KEEP,
+    CB_RESUBMIT_MENU_PREFIX,
     CB_SKIP,
     CB_TARGET_PREFIX,
     cancel_kb,
@@ -50,10 +53,16 @@ from bot.keyboards import (
     files_skip_confirm_kb,
     main_menu_kb,
     rating_kb,
+    resubmit_field_kb,
+    resubmit_menu_kb,
     skip_kb,
     target_type_kb,
 )
-from bot.moderation_reasons import mentions_evidence
+from bot.moderation_reasons import (
+    mentions_evidence,
+    resubmit_hint_lines,
+    suggested_resubmit_fields,
+)
 from bot.states import ReviewForm
 from bot.utils.address import (
     format_address_block,
@@ -63,6 +72,7 @@ from bot.utils.address import (
     normalize_street_or_complex,
 )
 from bot.utils.ai_moderation import analyze_review_for_moderation, format_ai_flags_for_admin
+from bot.utils.telegram import safe_callback_answer
 from bot.utils.catalog import normalize_catalog_name, validate_catalog_label
 from bot.utils.validators import validate_display_name, validate_public_text
 
@@ -74,10 +84,107 @@ router = Router()
 def _format_previous_review_content(data: dict) -> str:
     title = html_escape(str(data.get("public_title") or "—"))
     body = html_escape(str(data.get("public_text") or "—"))
+    name = html_escape(str(data.get("author_display_name") or "—"))
     return (
         f"<b>Текущий заголовок:</b>\n<i>{title}</i>\n\n"
-        f"<b>Текущий текст отзыва:</b>\n<i>{body}</i>"
+        f"<b>Текущий текст отзыва:</b>\n<i>{body}</i>\n\n"
+        f"<b>Имя на сайте:</b> <i>{name}</i>"
     )
+
+
+async def _show_resubmit_menu(
+    message: Message,
+    state: FSMContext,
+    *,
+    edit: bool = False,
+) -> None:
+    data = await state.get_data()
+    review_id = data.get("resubmit_review_id")
+    if not review_id:
+        return
+
+    await state.set_state(ReviewForm.resubmit_menu)
+    notes = data.get("moderation_notes")
+    suggested = suggested_resubmit_fields(notes)
+    existing_evidence = int(data.get("existing_evidence_count") or 0)
+
+    lines = [
+        "<b>Исправление заявки</b>",
+        f"ID: <code>{review_id}</code>",
+    ]
+    if notes:
+        lines.append(f"<b>Что просит модератор:</b>\n{html_escape(str(notes))}")
+
+    hints = resubmit_hint_lines(notes)
+    if hints:
+        lines.append("<b>Рекомендуем:</b>\n" + "\n".join(hints))
+
+    lines.append(
+        "<b>Что делать:</b> нажмите кнопку ниже, чтобы изменить нужное поле. "
+        "Можно править несколько раз. Когда всё готово — "
+        "«✅ Готово — отправить на модерацию»."
+    )
+    lines.append(_format_previous_review_content(data))
+    if existing_evidence:
+        lines.append(
+            f"<b>Доказательств уже загружено:</b> {existing_evidence} файл(ов)."
+        )
+
+    text = "\n\n".join(lines)
+    kb = resubmit_menu_kb(suggested=suggested)
+    if edit:
+        await message.edit_text(text, reply_markup=kb)
+    else:
+        await message.answer(text, reply_markup=kb)
+
+
+async def _show_resubmit_menu(
+    message: Message,
+    state: FSMContext,
+    *,
+    edit: bool = False,
+) -> None:
+    data = await state.get_data()
+    await state.set_state(ReviewForm.resubmit_menu)
+
+    notes = data.get("moderation_notes")
+    suggested = suggested_resubmit_fields(notes)
+    existing_evidence = int(data.get("existing_evidence_count") or 0)
+
+    lines = [
+        "<b>Исправление заявки</b>",
+        f"ID: <code>{data.get('resubmit_review_id')}</code>",
+    ]
+    if notes:
+        lines.append(
+            f"<b>Что просит модератор:</b>\n{html_escape(str(notes))}"
+        )
+
+    hints = resubmit_hint_lines(notes)
+    if hints:
+        lines.append("<b>Рекомендуем:</b>\n" + "\n".join(hints))
+
+    lines.append(
+        "<b>Что делать:</b> нажмите кнопку ниже, внесите правку сообщением в чат "
+        "(или «Оставить без изменений»). Когда всё готово — "
+        "<b>«Готово — отправить на модерацию»</b>."
+    )
+    lines.append(_format_previous_review_content(data))
+    if existing_evidence:
+        lines.append(
+            f"<b>Доказательств уже загружено:</b> {existing_evidence} файл(ов)."
+        )
+
+    text = "\n\n".join(lines)
+    kb = resubmit_menu_kb(suggested=suggested)
+    await _send_or_edit(message, text=text, reply_markup=kb, edit=edit)
+
+
+def _resubmit_moderator_block(data: dict) -> str:
+    notes = data.get("moderation_notes")
+    if not notes:
+        return ""
+    return f"<b>Комментарий модератора:</b>\n{html_escape(str(notes))}\n\n"
 
 
 async def _send_or_edit(
@@ -145,28 +252,119 @@ async def begin_resubmit_flow(
         private_text=review.get("private_text"),
         author_display_name=review.get("author_display_name"),
         moderation_notes=review.get("moderation_notes"),
+        file_ids=[],
+        review_id=None,
     )
-    await state.set_state(ReviewForm.author_display_name)
+    await _show_resubmit_menu(callback.message, state, edit=True)
+    await callback.answer()
 
-    lines = [
-        "<b>Исправление заявки</b>",
-        f"ID: <code>{review_id}</code>",
-    ]
-    if review.get("moderation_notes"):
-        lines.append(f"<b>Что исправить:</b>\n{html_escape(str(review['moderation_notes']))}")
-    if mentions_evidence(review.get("moderation_notes")):
-        lines.append(
-            "<b>💡 Рекомендация:</b> на шаге доказательств приложите фото или документы "
-            "(переписка, договор, чеки)."
+
+@router.callback_query(
+    ReviewForm.resubmit_menu,
+    lambda c: c.data and c.data.startswith(CB_RESUBMIT_MENU_PREFIX),
+)
+async def resubmit_menu_action(callback: CallbackQuery, state: FSMContext) -> None:
+    if not callback.message:
+        return
+
+    action = callback.data.removeprefix(CB_RESUBMIT_MENU_PREFIX)
+    data = await state.get_data()
+
+    if action == "submit":
+        await state.set_state(ReviewForm.confirmation)
+        summary = await _build_summary(data)
+        await callback.message.edit_text(
+            f"<b>Проверьте исправления перед повторной отправкой:</b>\n\n{summary}",
+            reply_markup=confirm_kb(),
         )
-    if existing_evidence:
-        lines.append(f"<b>Уже загружено:</b> {existing_evidence} файл(ов) — можно добавить ещё.")
-    lines.append(_format_previous_review_content(review))
-    lines.append(
-        f"Текущее имя на сайте: <i>{html_escape(str(review.get('author_display_name') or '—'))}</i>\n\n"
-        "Отправьте <b>имя или псевдоним</b>, которое будет указано в отзыве на сайте:"
-    )
-    await callback.message.edit_text("\n\n".join(lines), reply_markup=cancel_kb())
+        await callback.answer()
+        return
+
+    if action == "text":
+        await state.update_data(resubmit_editing_field="text")
+        await state.set_state(ReviewForm.public_text)
+        notes = data.get("moderation_notes")
+        body = html_escape(str(data.get("public_text") or "—"))
+        lines = [
+            "<b>✏️ Текст отзыва</b>",
+            f"<b>Текущий текст:</b>\n<i>{body}</i>",
+            "Отправьте <b>новый текст</b> сообщением в чат.\n"
+            "Без телефонов, email, ЕГН и оскорблений.",
+        ]
+        if notes:
+            lines.insert(1, f"<b>Комментарий модератора:</b>\n{html_escape(str(notes))}")
+        await callback.message.edit_text(
+            "\n\n".join(lines),
+            reply_markup=resubmit_field_kb(),
+        )
+        await callback.answer()
+        return
+
+    if action == "title":
+        await state.update_data(resubmit_editing_field="title")
+        await state.set_state(ReviewForm.public_title)
+        title = html_escape(str(data.get("public_title") or "—"))
+        await callback.message.edit_text(
+            "<b>📌 Заголовок отзыва</b>\n\n"
+            f"<b>Текущий заголовок:</b> <i>{title}</i>\n\n"
+            "Отправьте <b>новый заголовок</b> сообщением в чат.",
+            reply_markup=resubmit_field_kb(),
+        )
+        await callback.answer()
+        return
+
+    if action == "name":
+        await state.update_data(resubmit_editing_field="name")
+        await state.set_state(ReviewForm.author_display_name)
+        name = html_escape(str(data.get("author_display_name") or "—"))
+        await callback.message.edit_text(
+            "<b>👤 Имя на сайте</b>\n\n"
+            f"<b>Текущее имя:</b> <i>{name}</i>\n\n"
+            "Отправьте <b>имя или псевдоним</b> для публикации на сайте.",
+            reply_markup=resubmit_field_kb(),
+        )
+        await callback.answer()
+        return
+
+    if action == "private":
+        await state.update_data(resubmit_editing_field="private")
+        await state.set_state(ReviewForm.private_text)
+        private = data.get("private_text")
+        private_line = (
+            f"<b>Текущий комментарий:</b>\n<i>{html_escape(str(private))}</i>"
+            if private
+            else "<i>Комментарий не задан.</i>"
+        )
+        await callback.message.edit_text(
+            "<b>💬 Комментарий для модератора</b> (не публикуется)\n\n"
+            f"{private_line}\n\n"
+            "Отправьте новый комментарий или «-» чтобы убрать.",
+            reply_markup=resubmit_field_kb(),
+        )
+        await callback.answer()
+        return
+
+    if action == "evidence":
+        await state.update_data(resubmit_editing_field="evidence", file_ids=[])
+        await _go_to_files_step(callback.message, state, edit=True)
+        await callback.answer()
+        return
+
+    await callback.answer("Неизвестное действие", show_alert=True)
+
+
+@router.callback_query(lambda c: c.data in (CB_RESUBMIT_KEEP, CB_RESUBMIT_BACK_MENU))
+async def resubmit_keep_or_back(callback: CallbackQuery, state: FSMContext) -> None:
+    if not callback.message:
+        return
+
+    data = await state.get_data()
+    if not data.get("resubmit_review_id"):
+        await callback.answer()
+        return
+
+    await state.update_data(resubmit_editing_field=None)
+    await _show_resubmit_menu(callback.message, state, edit=True)
     await callback.answer()
 
 
@@ -714,16 +912,28 @@ async def process_rating(callback: CallbackQuery, state: FSMContext) -> None:
 @router.message(ReviewForm.author_display_name)
 async def process_author_display_name(message: Message, state: FSMContext) -> None:
     name = (message.text or "").strip()
+    data = await state.get_data()
+    is_resubmit = bool(data.get("resubmit_review_id"))
+    kb = resubmit_field_kb() if is_resubmit else cancel_kb()
+
     validation = validate_display_name(name)
     if validation.has_risk:
         warnings = "\n".join(f"• {w}" for w in validation.warnings)
         await message.answer(
             f"<b>Проверьте имя:</b>\n{warnings}",
-            reply_markup=cancel_kb(),
+            reply_markup=kb,
         )
         return
 
     await state.update_data(author_display_name=name)
+    if is_resubmit:
+        await state.update_data(resubmit_editing_field=None)
+        await message.answer(
+            f"✅ Имя обновлено: <b>{html_escape(name)}</b>",
+        )
+        await _show_resubmit_menu(message, state)
+        return
+
     await state.set_state(ReviewForm.public_title)
     await message.answer(
         f"Имя на сайте: <b>{html_escape(name)}</b>\n\n"
@@ -737,21 +947,18 @@ async def process_public_title(message: Message, state: FSMContext) -> None:
     title = (message.text or "").strip()
     data = await state.get_data()
     await state.update_data(public_title=title)
-    await state.set_state(ReviewForm.public_text)
 
     if data.get("resubmit_review_id"):
-        prev_text = data.get("public_text") or "—"
-        text = (
-            f"Новый заголовок: <i>{html_escape(title)}</i>\n\n"
-            f"<b>Текущий текст отзыва:</b>\n<i>{html_escape(str(prev_text))}</i>\n\n"
-            "Отправьте исправленный <b>публичный текст</b> отзыва.\n"
-            "Без телефонов, email, ЕГН и оскорблений:"
-        )
-    else:
-        text = (
-            "Введите <b>публичный текст</b> отзыва.\n"
-            "Без телефонов, email, ЕГН и оскорблений:"
-        )
+        await state.update_data(resubmit_editing_field=None)
+        await message.answer(f"✅ Заголовок обновлён: <i>{html_escape(title)}</i>")
+        await _show_resubmit_menu(message, state)
+        return
+
+    await state.set_state(ReviewForm.public_text)
+    text = (
+        "Введите <b>публичный текст</b> отзыва.\n"
+        "Без телефонов, email, ЕГН и оскорблений:"
+    )
     await message.answer(text, reply_markup=cancel_kb())
 
 
@@ -760,6 +967,8 @@ async def process_public_text(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
     data = await state.get_data()
     title = data.get("public_title", "")
+    is_resubmit = bool(data.get("resubmit_review_id"))
+    kb = resubmit_field_kb() if is_resubmit else cancel_kb()
     validation = validate_public_text(title, text)
 
     if validation.has_risk:
@@ -767,11 +976,17 @@ async def process_public_text(message: Message, state: FSMContext) -> None:
         await message.answer(
             f"<b>Обнаружены риски в тексте:</b>\n{warnings}\n\n"
             "Пожалуйста, исправьте публичный текст и отправьте снова.",
-            reply_markup=cancel_kb(),
+            reply_markup=kb,
         )
         return
 
     await state.update_data(public_text=text, validation_warnings=[])
+    if is_resubmit:
+        await state.update_data(resubmit_editing_field=None)
+        await message.answer("✅ Текст отзыва обновлён.")
+        await _show_resubmit_menu(message, state)
+        return
+
     await state.set_state(ReviewForm.private_text)
     await message.answer(
         "Приватный комментарий для модератора (не публикуется).\n"
@@ -782,7 +997,13 @@ async def process_public_text(message: Message, state: FSMContext) -> None:
 
 @router.callback_query(ReviewForm.private_text, lambda c: c.data == CB_SKIP)
 async def skip_private_text(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
     await state.update_data(private_text=None)
+    if data.get("resubmit_review_id"):
+        await state.update_data(resubmit_editing_field=None)
+        await _show_resubmit_menu(callback.message, state, edit=True)
+        await callback.answer()
+        return
     await _go_to_files_step(callback.message, state)
     await callback.answer()
 
@@ -791,15 +1012,24 @@ async def skip_private_text(callback: CallbackQuery, state: FSMContext) -> None:
 async def process_private_text(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
     private_text = None if text == "-" else text
+    data = await state.get_data()
     await state.update_data(private_text=private_text)
+    if data.get("resubmit_review_id"):
+        await state.update_data(resubmit_editing_field=None)
+        await message.answer("✅ Комментарий для модератора обновлён.")
+        await _show_resubmit_menu(message, state)
+        return
     await _go_to_files_step(message, state)
 
 
-async def _go_to_files_step(message: Message, state: FSMContext) -> None:
+async def _go_to_files_step(
+    message: Message, state: FSMContext, *, edit: bool = False
+) -> None:
     data = await state.get_data()
     is_resubmit = bool(data.get("resubmit_review_id"))
     existing_count = int(data.get("existing_evidence_count") or 0)
-    await state.update_data(file_ids=[], review_id=None)
+    if not is_resubmit:
+        await state.update_data(file_ids=[], review_id=None)
     await state.set_state(ReviewForm.evidence_files)
 
     evidence_hint = ""
@@ -814,19 +1044,28 @@ async def _go_to_files_step(message: Message, state: FSMContext) -> None:
             "Можно добавить новые (старые останутся)."
         )
 
+    done_hint = (
+        "Когда файлы загружены — нажмите <b>«Вернуться к меню правок»</b>."
+        if is_resubmit
+        else "Когда всё готово — нажмите <b>«Перейти к отправке»</b>."
+    )
     text = (
         "📎 <b>Доказательства</b> (необязательно, но повышают шанс публикации)\n\n"
         f"Пришлите фото или документы: договор, переписку, чеки, фото дефектов — "
         f"до {MAX_EVIDENCE_FILES} новых файлов за раз.\n"
         "Файлы <b>не публикуются</b> — их видит только модератор."
         f"{evidence_hint}\n\n"
-        "Чтобы <b>загрузить</b> — просто отправьте фото или документ в чат.\n"
-        "Когда всё готово — нажмите <b>«Перейти к отправке»</b>."
+        f"Чтобы <b>загрузить</b> — просто отправьте фото или документ в чат.\n"
+        f"{done_hint}"
     )
-    await message.answer(
-        text,
-        reply_markup=files_kb(0, MAX_EVIDENCE_FILES, existing_count=existing_count),
+    file_ids: list[str] = data.get("file_ids", [])
+    kb = files_kb(
+        len(file_ids),
+        MAX_EVIDENCE_FILES,
+        existing_count=existing_count,
+        resubmit=is_resubmit,
     )
+    await _send_or_edit(message, text=text, reply_markup=kb, edit=edit)
 
 
 @router.message(ReviewForm.evidence_files)
@@ -834,6 +1073,7 @@ async def process_evidence_file(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     file_ids: list[str] = data.get("file_ids", [])
     existing_count = int(data.get("existing_evidence_count") or 0)
+    is_resubmit = bool(data.get("resubmit_review_id"))
 
     if message.photo:
         file_ids.append(message.photo[-1].file_id)
@@ -844,7 +1084,10 @@ async def process_evidence_file(message: Message, state: FSMContext) -> None:
             "Отправьте фото или документ в чат. "
             "Или нажмите «Перейти к отправке» / «Отправить без доказательств».",
             reply_markup=files_kb(
-                len(file_ids), MAX_EVIDENCE_FILES, existing_count=existing_count
+                len(file_ids),
+                MAX_EVIDENCE_FILES,
+                existing_count=existing_count,
+                resubmit=is_resubmit,
             ),
         )
         return
@@ -856,7 +1099,10 @@ async def process_evidence_file(message: Message, state: FSMContext) -> None:
     await message.answer(
         f"Файл принят ({len(file_ids)}/{MAX_EVIDENCE_FILES} новых).",
         reply_markup=files_kb(
-            len(file_ids), MAX_EVIDENCE_FILES, existing_count=existing_count
+            len(file_ids),
+            MAX_EVIDENCE_FILES,
+            existing_count=existing_count,
+            resubmit=is_resubmit,
         ),
     )
 
@@ -883,16 +1129,25 @@ async def files_skip_prompt(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(ReviewForm.evidence_files, lambda c: c.data == CB_FILES_BACK)
 async def files_skip_back(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
+    is_resubmit = bool(data.get("resubmit_review_id"))
     existing_count = int(data.get("existing_evidence_count") or 0)
     file_ids: list[str] = data.get("file_ids", [])
+    done_hint = (
+        "Когда файлы загружены — нажмите <b>«Вернуться к меню правок»</b>."
+        if is_resubmit
+        else "Когда всё готово — нажмите <b>«Перейти к отправке»</b>."
+    )
     await callback.message.edit_text(
         "📎 <b>Доказательства</b> (необязательно, но повышают шанс публикации)\n\n"
         f"Пришлите фото или документы — до {MAX_EVIDENCE_FILES} новых файлов за раз.\n"
         "Файлы <b>не публикуются</b> — их видит только модератор.\n\n"
-        "Чтобы <b>загрузить</b> — отправьте файл в чат.\n"
-        "Когда всё готово — нажмите <b>«Перейти к отправке»</b>.",
+        f"Чтобы <b>загрузить</b> — отправьте файл в чат.\n"
+        f"{done_hint}",
         reply_markup=files_kb(
-            len(file_ids), MAX_EVIDENCE_FILES, existing_count=existing_count
+            len(file_ids),
+            MAX_EVIDENCE_FILES,
+            existing_count=existing_count,
+            resubmit=is_resubmit,
         ),
     )
     await callback.answer()
@@ -903,16 +1158,17 @@ async def files_skip_back(callback: CallbackQuery, state: FSMContext) -> None:
     lambda c: c.data in (CB_FILES_DONE, CB_FILES_SKIP_CONFIRM),
 )
 async def files_done(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(ReviewForm.confirmation)
     data = await state.get_data()
+    if data.get("resubmit_review_id"):
+        await state.update_data(resubmit_editing_field=None)
+        await _show_resubmit_menu(callback.message, state, edit=True)
+        await callback.answer()
+        return
+
+    await state.set_state(ReviewForm.confirmation)
     summary = await _build_summary(data)
-    heading = (
-        "Проверьте исправления перед повторной отправкой:"
-        if data.get("resubmit_review_id")
-        else "Проверьте заявку перед отправкой:"
-    )
     await callback.message.edit_text(
-        f"<b>{heading}</b>\n\n{summary}",
+        f"<b>Проверьте заявку перед отправкой:</b>\n\n{summary}",
         reply_markup=confirm_kb(),
     )
     await callback.answer()
@@ -921,19 +1177,16 @@ async def files_done(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(ReviewForm.confirmation, lambda c: c.data == CB_CONFIRM_EDIT)
 async def confirm_edit(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
-    await state.set_state(ReviewForm.author_display_name)
     if data.get("resubmit_review_id"):
-        text = (
-            "<b>Исправление заявки</b>\n\n"
-            f"{_format_previous_review_content(data)}\n\n"
-            f"Текущее имя на сайте: <i>{html_escape(str(data.get('author_display_name') or '—'))}</i>\n\n"
-            "Отправьте <b>имя или псевдоним</b> для сайта:"
-        )
-    else:
-        text = (
-            f"Текущее имя на сайте: <i>{html_escape(str(data.get('author_display_name') or '—'))}</i>\n\n"
-            "Отправьте <b>имя или псевдоним</b> заново:"
-        )
+        await _show_resubmit_menu(callback.message, state, edit=True)
+        await callback.answer()
+        return
+
+    await state.set_state(ReviewForm.author_display_name)
+    text = (
+        f"Текущее имя на сайте: <i>{html_escape(str(data.get('author_display_name') or '—'))}</i>\n\n"
+        "Отправьте <b>имя или псевдоним</b> заново:"
+    )
     await callback.message.edit_text(text, reply_markup=cancel_kb())
     await callback.answer()
 
@@ -942,6 +1195,9 @@ async def confirm_edit(callback: CallbackQuery, state: FSMContext) -> None:
 async def confirm_send(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     if not callback.from_user:
         return
+
+    # Telegram ждёт answer ~10 с; AI-проверка дольше — отвечаем сразу.
+    await safe_callback_answer(callback, text="Отправляем на модерацию…")
 
     data = await state.get_data()
     app_user = get_or_create_user(
@@ -972,7 +1228,6 @@ async def confirm_send(callback: CallbackQuery, state: FSMContext, bot: Bot) -> 
                     "Заявка уже обработана или недоступна для правок.",
                     reply_markup=main_menu_kb(),
                 )
-                await callback.answer()
                 return
 
             review = update_review(
@@ -1037,7 +1292,6 @@ async def confirm_send(callback: CallbackQuery, state: FSMContext, bot: Bot) -> 
             "Ошибка при сохранении. Попробуйте позже или свяжитесь с админом.",
             reply_markup=main_menu_kb(),
         )
-    await callback.answer()
 
 
 async def _upload_telegram_file(
