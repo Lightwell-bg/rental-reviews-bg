@@ -18,7 +18,7 @@
 ```
 rental-reviews-bg/
 ├── web/                 # Next.js сайт
-│   └── public/          # logo.svg, icon.svg (фавикон), centerai-logo.png
+│   └── public/          # brand/ (логотип, иконка, favicon), centerai-logo.png
 ├── bot/                 # Telegram-бот
 ├── supabase/
 │   └── migrations/      # SQL: схема, RLS, справочники

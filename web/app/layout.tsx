@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   description:
     "Проверенные отзывы об опыте аренды недвижимости в Болгарии",
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    icon: [{ url: "/brand/icon.png", type: "image/png" }],
+    apple: [{ url: "/brand/icon.png", type: "image/png" }],
   },
 };
 

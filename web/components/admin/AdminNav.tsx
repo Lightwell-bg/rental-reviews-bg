@@ -13,9 +13,9 @@ const links = [
 
 export function AdminNav() {
   return (
-    <header className="border-b border-zinc-300 bg-zinc-900 text-white">
+    <header className="border-b border-brand-950/40 bg-brand-950 text-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <BrandLogo showWordmark={false} className="[&_img]:brightness-110" />
+        <BrandLogo variant="icon" />
         <nav className="flex flex-wrap gap-4 text-sm">
           {links.map((l) => (
             <Link

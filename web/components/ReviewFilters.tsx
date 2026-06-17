@@ -41,7 +41,7 @@ export function ReviewFilters({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
+      className="surface-card p-4"
     >
       <h2 className="text-sm font-semibold text-zinc-900">Фильтры</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -51,7 +51,7 @@ export function ReviewFilters({
             name="address"
             defaultValue={address ?? ""}
             placeholder="город, район, улица, дом, квартира"
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-emerald-600"
+            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-brand-600"
           />
         </label>
         <label className="block text-sm">
@@ -59,7 +59,7 @@ export function ReviewFilters({
           <select
             name="city"
             defaultValue={city ?? ""}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-emerald-600"
+            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-brand-600"
           >
             <option value="">Все</option>
             {(cities ?? []).map((c) => (
@@ -74,7 +74,7 @@ export function ReviewFilters({
           <select
             name="target_type"
             defaultValue={target_type ?? ""}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-emerald-600"
+            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-brand-600"
           >
             <option value="">Все</option>
             {TARGET_TYPE_OPTIONS.map((o) => (
@@ -89,7 +89,7 @@ export function ReviewFilters({
           <select
             name="rating"
             defaultValue={rating ?? ""}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-emerald-600"
+            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-brand-600"
           >
             <option value="">Любой</option>
             {RATING_OPTIONS.map((r) => (

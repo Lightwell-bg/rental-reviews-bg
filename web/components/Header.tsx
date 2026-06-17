@@ -10,15 +10,15 @@ const NAV = [
 
 export function Header() {
   return (
-    <header className="border-b border-zinc-200 bg-white">
+    <header className="border-b border-brand-950/40 bg-brand-900 shadow-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <BrandLogo />
-        <nav className="flex flex-wrap items-center gap-4 text-sm text-zinc-600">
+        <BrandLogo variant="onDark" />
+        <nav className="flex flex-wrap items-center gap-4 text-sm font-medium text-brand-100">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="transition hover:text-emerald-800"
+              className="rounded-md px-1 transition hover:text-white"
             >
               {item.label}
             </Link>

@@ -10,8 +10,8 @@ export default async function AdminLoginPage({
   const { next, error } = await searchParams;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-100 px-4">
-      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-surface px-4">
+      <div className="surface-card w-full max-w-sm p-6">
         <h1 className="text-xl font-semibold text-zinc-900">Вход в админку</h1>
         <p className="mt-2 text-sm text-zinc-600">
           Временная защита через ADMIN_SECRET. Позже — Supabase Auth.
@@ -30,12 +30,12 @@ export default async function AdminLoginPage({
               type="password"
               required
               autoComplete="current-password"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 outline-none focus:border-emerald-600"
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 outline-none focus:border-brand-600"
             />
           </label>
           <button
             type="submit"
-            className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-800"
+            className="w-full rounded-lg bg-brand-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-900"
           >
             Войти
           </button>

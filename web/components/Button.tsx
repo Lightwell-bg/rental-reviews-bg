@@ -3,15 +3,18 @@ import type { ComponentProps } from "react";
 
 type ButtonProps = ComponentProps<"button"> & {
   href?: string;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost" | "inverse";
 };
 
 const variants = {
   primary:
-    "bg-emerald-700 text-white hover:bg-emerald-800 border border-emerald-700",
+    "bg-brand-800 text-white hover:bg-brand-900 border border-brand-800 shadow-sm",
   secondary:
-    "bg-white text-zinc-900 hover:bg-zinc-50 border border-zinc-300",
-  ghost: "bg-transparent text-emerald-800 hover:bg-emerald-50 border border-transparent",
+    "bg-surface-card text-zinc-900 hover:bg-white border border-brand-200",
+  ghost:
+    "bg-transparent text-brand-800 hover:bg-brand-50 border border-transparent",
+  inverse:
+    "bg-white text-brand-900 hover:bg-brand-50 border border-white/90 shadow-sm",
 };
 
 function isExternalHref(href: string) {

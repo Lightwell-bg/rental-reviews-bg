@@ -46,7 +46,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
         {error ? (
           <ErrorState message={error} retryHref="/reviews" />
         ) : data.length === 0 ? (
-          <div className="rounded-xl border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-600">
+          <div className="surface-card px-6 py-12 text-center text-zinc-600">
             <p className="font-medium text-zinc-800">Отзывов пока нет</p>
             <p className="mt-2 text-sm">
               Попробуйте изменить фильтры или загляните позже.

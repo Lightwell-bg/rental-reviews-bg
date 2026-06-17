@@ -11,7 +11,7 @@ export default async function SiteLayout({
   const analytics = await getAnalyticsSettings();
 
   return (
-    <div className="flex min-h-full flex-col bg-zinc-50">
+    <div className="flex min-h-full flex-col bg-surface">
       <AnalyticsBodyScripts html={analytics.body} />
       <Header />
       <div className="flex-1">{children}</div>

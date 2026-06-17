@@ -19,7 +19,7 @@ export function ReviewCard({ review }: { review: ReviewPublic }) {
   const typeLabel = TARGET_TYPE_LABELS[review.target_type] ?? review.target_type;
 
   return (
-    <article className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-emerald-200 hover:shadow-md">
+    <article className="surface-card p-5 transition hover:border-brand-300 hover:shadow-md">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           {review.author_display_name && (
@@ -28,7 +28,7 @@ export function ReviewCard({ review }: { review: ReviewPublic }) {
             </p>
           )}
           <h2 className="text-lg font-semibold text-zinc-900">
-            <Link href={`/reviews/${review.id}`} className="hover:text-emerald-800">
+            <Link href={`/reviews/${review.id}`} className="hover:text-brand-800">
               {review.public_title || "Без заголовка"}
             </Link>
           </h2>
@@ -54,7 +54,7 @@ export function ReviewCard({ review }: { review: ReviewPublic }) {
 
       <Link
         href={`/reviews/${review.id}`}
-        className="mt-4 inline-block text-sm font-medium text-emerald-800 hover:underline"
+        className="mt-4 inline-block text-sm font-medium text-brand-800 hover:underline"
       >
         Читать полностью →
       </Link>
