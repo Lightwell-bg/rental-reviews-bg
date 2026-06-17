@@ -11,6 +11,7 @@ export const metadata = {
 type PageProps = {
   searchParams: Promise<{
     city?: string;
+    address?: string;
     target_type?: string;
     rating?: string;
   }>;
@@ -34,6 +35,7 @@ export default async function ReviewsPage({ searchParams }: PageProps) {
       <div className="mt-8">
         <ReviewFilters
           city={params.city}
+          address={params.address}
           cities={cities.map((c) => c.name)}
           target_type={params.target_type}
           rating={params.rating}

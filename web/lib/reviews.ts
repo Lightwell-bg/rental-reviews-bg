@@ -1,6 +1,9 @@
 import type { ReplyPublic, ReviewFilters, ReviewPublic } from "@/lib/types";
 import { createServerClient } from "@/lib/supabase/server";
 
+const REVIEW_PUBLIC_COLUMNS =
+  "id, target_type, city, district, street_or_complex, building_number, apartment_number, address_public, address_search_key, property_type, author_display_name, public_title, public_text, rating, created_at, published_at";
+
 export async function getApprovedReviews(
   filters: ReviewFilters = {}
 ): Promise<{ data: ReviewPublic[]; error: string | null }> {
@@ -8,13 +11,15 @@ export async function getApprovedReviews(
     const supabase = createServerClient();
     let query = supabase
       .from("reviews_public")
-      .select(
-        "id, target_type, city, district, property_type, author_display_name, public_title, public_text, rating, created_at, published_at"
-      )
+      .select(REVIEW_PUBLIC_COLUMNS)
       .order("published_at", { ascending: false, nullsFirst: false });
 
     if (filters.city?.trim()) {
       query = query.ilike("city", `%${filters.city.trim()}%`);
+    }
+    if (filters.address?.trim()) {
+      const q = filters.address.trim().toLowerCase();
+      query = query.ilike("address_search_key", `%${q}%`);
     }
     if (filters.target_type) {
       query = query.eq("target_type", filters.target_type);
@@ -46,9 +51,7 @@ export async function getApprovedReviewById(
     const supabase = createServerClient();
     const { data, error } = await supabase
       .from("reviews_public")
-      .select(
-        "id, target_type, city, district, property_type, author_display_name, public_title, public_text, rating, created_at, published_at"
-      )
+      .select(REVIEW_PUBLIC_COLUMNS)
       .eq("id", id)
       .maybeSingle();
 

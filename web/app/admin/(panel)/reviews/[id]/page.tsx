@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ReviewModerationButtons } from "@/components/admin/ReviewModerationButtons";
 import { AiModerationPanel } from "@/components/admin/AiModerationPanel";
+import { formatApartmentLabel, formatBuildingLabel } from "@/lib/address";
 import { TARGET_TYPE_LABELS } from "@/lib/constants";
 import { getAdminReviewDetail } from "@/lib/admin/queries";
 import { formatDate } from "@/lib/reviews";
@@ -72,6 +73,15 @@ export default async function AdminReviewDetailPage({
           <Field label="Тип" value={typeLabel} />
           <Field label="Город" value={review.city} />
           <Field label="Район" value={review.district} />
+          <Field label="Улица/ж.к." value={review.street_or_complex} />
+          <Field
+            label="Дом/блок"
+            value={formatBuildingLabel(review.building_number)}
+          />
+          <Field
+            label="Квартира"
+            value={formatApartmentLabel(review.apartment_number)}
+          />
           <Field label="Жильё" value={review.property_type} />
           <Field label="Рейтинг" value={review.rating} />
           <Field label="Создан" value={formatDate(review.created_at)} />

@@ -8,7 +8,11 @@
 - [ ] Выполнен `supabase/migrations/upgrade_legacy.sql` (только если БД создана до объединения миграций)
 - [ ] Таблица `site_settings` содержит ключи `analytics_head`, `analytics_body`
 - [ ] В `reviews` есть колонки `author_display_name`, `author_telegram_*`
-- [ ] VIEW `reviews_public` содержит `author_display_name`
+- [ ] Выполнен `supabase/migrations/002_address_fields.sql` (если БД создана до адресных полей)
+- [ ] В `reviews` есть `street_or_complex`, `building_number`, `apartment_number`
+- [ ] `street_or_complex` обязателен; `building_number` по умолчанию `X`
+- [ ] `reviews_public` содержит `apartment_number` и `address_public`
+- [ ] Поиск на сайте работает по адресу, не по ФИО
 - [ ] Создан Storage bucket `review-attachments` (Private)
 
 Проверка таблиц в SQL Editor:

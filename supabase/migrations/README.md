@@ -2,20 +2,17 @@
 
 ## Новый проект — один файл
 
-Supabase Dashboard → **SQL Editor** → скопировать и выполнить:
+Supabase Dashboard → **SQL Editor** → выполнить:
 
 **`001_init.sql`**
 
-Содержит всё: таблицы, RLS, публичные VIEW, справочники, `site_settings`.
+## Уже развёрнутая БД
 
-После этого создайте Storage bucket `review-attachments` (Private).
+| Файл | Когда |
+|------|--------|
+| `upgrade_legacy.sql` | БД без полей автора (`author_*`) |
+| `002_address_fields.sql` | БД без адресных полей |
 
-## Уже развёрнутая БД (старая схема)
+Порядок для старой БД: `upgrade_legacy.sql` (если нужно) → `002_address_fields.sql`.
 
-Если проект создан до объединения миграций и нет полей `author_*` в `reviews`:
-
-**`upgrade_legacy.sql`**
-
-Повторный запуск безопасен (`IF NOT EXISTS`, `DROP VIEW`).
-
-Подробнее: [docs/DEPLOY.md — Supabase](../../docs/DEPLOY.md#12-supabase--база-данных-и-storage)
+Подробнее: [docs/DEPLOY.md](../../docs/DEPLOY.md)

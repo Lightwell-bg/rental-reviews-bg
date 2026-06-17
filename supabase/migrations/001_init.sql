@@ -2,7 +2,9 @@
 -- Rental Reviews BG — полная инициализация БД (один запуск для нового проекта)
 --
 -- Схема + RLS + публичные VIEW + справочники + site_settings.
--- Для уже существующей БД без полей автора см. upgrade_legacy.sql
+-- Для уже существующей БД: upgrade_legacy.sql, затем 002_address_fields.sql
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- Rental Reviews BG — начальная схема
 --
@@ -44,6 +46,10 @@ CREATE TABLE reviews (
   target_type      text        NOT NULL,
   city             text        NOT NULL,
   district         text,
+  street_or_complex text       NOT NULL,
+  building_number  text        NOT NULL DEFAULT 'X',
+  apartment_number text,
+  address_search_key text,
   property_type    text,
   public_title     text,
   public_text      text,
@@ -79,15 +85,25 @@ CREATE TABLE reviews (
       'disputed',
       'removed'
     )
-  )
+  ),
+  CONSTRAINT reviews_street_not_empty CHECK (length(trim(street_or_complex)) > 0),
+  CONSTRAINT reviews_building_not_empty CHECK (length(trim(building_number)) > 0)
 );
 
 CREATE INDEX reviews_status_idx ON reviews (status);
 CREATE INDEX reviews_city_idx ON reviews (city);
 CREATE INDEX reviews_target_type_idx ON reviews (target_type);
 CREATE INDEX reviews_created_at_idx ON reviews (created_at DESC);
+CREATE INDEX reviews_street_or_complex_idx ON reviews (street_or_complex);
+CREATE INDEX reviews_building_number_idx ON reviews (building_number);
+CREATE INDEX reviews_apartment_number_idx ON reviews (apartment_number);
+CREATE INDEX reviews_address_search_key_idx ON reviews (address_search_key);
 
-COMMENT ON TABLE reviews IS 'Отзывы; публично только status = approved (public_title, public_text, author_display_name)';
+COMMENT ON TABLE reviews IS 'Отзывы; публично только status = approved';
+COMMENT ON COLUMN reviews.street_or_complex IS 'Улица или ж.к.; обязательное поле';
+COMMENT ON COLUMN reviews.building_number IS 'Номер дома/блока; X если не указан';
+COMMENT ON COLUMN reviews.apartment_number IS 'Квартира; NULL если не указана';
+COMMENT ON COLUMN reviews.address_search_key IS 'Нормализованная строка для поиска по адресу';
 COMMENT ON COLUMN reviews.author_display_name IS
   'Имя или псевдоним автора на публичном сайте';
 COMMENT ON COLUMN reviews.author_telegram_id IS
@@ -204,6 +220,62 @@ CREATE TRIGGER reviews_updated_at
   BEFORE UPDATE ON reviews
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+CREATE OR REPLACE FUNCTION public.reviews_normalize_address()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  b_lower text;
+  parts text[] := ARRAY[]::text[];
+BEGIN
+  NEW.street_or_complex := nullif(trim(coalesce(NEW.street_or_complex, '')), '');
+  NEW.building_number := nullif(trim(coalesce(NEW.building_number, '')), '');
+  NEW.apartment_number := nullif(trim(coalesce(NEW.apartment_number, '')), '');
+
+  IF NEW.street_or_complex IS NULL THEN
+    RAISE EXCEPTION 'street_or_complex cannot be empty';
+  END IF;
+
+  IF NEW.building_number IS NULL THEN
+    NEW.building_number := 'X';
+  ELSE
+    b_lower := lower(NEW.building_number);
+    IF b_lower IN ('-', 'нет', 'не знаю') THEN
+      NEW.building_number := 'X';
+    END IF;
+  END IF;
+
+  IF NEW.apartment_number IS NULL OR NEW.apartment_number = '' THEN
+    NEW.apartment_number := NULL;
+  END IF;
+
+  parts := ARRAY[trim(NEW.city)];
+  IF NEW.district IS NOT NULL AND trim(NEW.district) <> '' THEN
+    parts := array_append(parts, trim(NEW.district));
+  END IF;
+  parts := array_append(parts, NEW.street_or_complex);
+  parts := array_append(parts, NEW.building_number);
+  IF NEW.apartment_number IS NOT NULL THEN
+    parts := array_append(parts, NEW.apartment_number);
+  END IF;
+
+  NEW.address_search_key := lower(
+    regexp_replace(array_to_string(parts, ' '), '\s+', ' ', 'g')
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER reviews_normalize_address
+  BEFORE INSERT OR UPDATE ON reviews
+  FOR EACH ROW
+  EXECUTE FUNCTION public.reviews_normalize_address();
+
+CREATE INDEX reviews_address_search_key_trgm_idx
+  ON public.reviews
+  USING gin (address_search_key gin_trgm_ops);
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security + публичные VIEW
@@ -371,6 +443,10 @@ GRANT SELECT (
   target_type,
   city,
   district,
+  street_or_complex,
+  building_number,
+  apartment_number,
+  address_search_key,
   property_type,
   author_display_name,
   public_title,
@@ -558,13 +634,30 @@ SELECT
   target_type,
   city,
   district,
+  street_or_complex,
+  building_number,
+  apartment_number,
+  trim(both ', ' FROM concat_ws(', ',
+    city,
+    NULLIF(trim(district), ''),
+    street_or_complex,
+    CASE
+      WHEN upper(trim(building_number)) = 'X' THEN 'дом/блок не указан'
+      ELSE 'бл. ' || trim(building_number)
+    END,
+    CASE
+      WHEN apartment_number IS NOT NULL AND trim(apartment_number) <> ''
+      THEN 'кв. ' || trim(apartment_number)
+    END
+  )) AS address_public,
   property_type,
   author_display_name,
   public_title,
   public_text,
   rating,
   created_at,
-  published_at
+  published_at,
+  address_search_key
 FROM public.reviews
 WHERE status = 'approved';
 
@@ -607,7 +700,7 @@ GRANT INSERT ON public.reports TO anon, authenticated;
 GRANT INSERT ON public.replies TO anon, authenticated;
 
 COMMENT ON VIEW public.reviews_public IS
-  'Публичный каталог: только approved. Без Telegram-полей автора.';
+  'Публичный каталог: только approved. Адрес + квартира после модерации.';
 COMMENT ON VIEW public.subjects_public IS
   'Безопасный публичный API: без private_name, address_private';
 COMMENT ON VIEW public.replies_public IS

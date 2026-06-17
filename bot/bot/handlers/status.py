@@ -3,6 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from bot.config import STATUS_LABELS, TARGET_TYPE_LABELS
+from bot.utils.address import format_address_block
 from bot.db import get_or_create_user, get_review, get_user_reviews, count_evidence_files
 from bot.keyboards import (
     CB_MY_REVIEW_PREFIX,
@@ -78,8 +79,7 @@ def _format_review_card(review: dict, *, include_private: bool = False) -> str:
         f"<b>Статус:</b> {status}",
         f"<b>Имя на сайте:</b> {review.get('author_display_name') or '—'}",
         f"<b>Тип:</b> {target}",
-        f"<b>Город:</b> {review.get('city', '—')}",
-        f"<b>Район:</b> {review.get('district') or '—'}",
+        format_address_block(review),
         f"<b>Оценка:</b> {review.get('rating') or '—'}/5",
         f"<b>Заголовок:</b> {review.get('public_title') or '—'}",
         f"<b>Текст:</b> {review.get('public_text') or '—'}",

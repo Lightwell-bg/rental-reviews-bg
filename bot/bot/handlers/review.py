@@ -55,6 +55,13 @@ from bot.keyboards import (
 )
 from bot.moderation_reasons import mentions_evidence
 from bot.states import ReviewForm
+from bot.utils.address import (
+    format_address_block,
+    format_apartment_label,
+    normalize_apartment_number,
+    normalize_building_number,
+    normalize_street_or_complex,
+)
 from bot.utils.ai_moderation import analyze_review_for_moderation, format_ai_flags_for_admin
 from bot.utils.catalog import normalize_catalog_name, validate_catalog_label
 from bot.utils.validators import validate_display_name, validate_public_text
@@ -128,6 +135,9 @@ async def begin_resubmit_flow(
         target_type=review.get("target_type"),
         city=review.get("city"),
         district=review.get("district"),
+        street_or_complex=review.get("street_or_complex"),
+        building_number=review.get("building_number"),
+        apartment_number=review.get("apartment_number"),
         property_type=review.get("property_type"),
         rating=review.get("rating"),
         public_title=review.get("public_title"),
@@ -305,9 +315,7 @@ async def process_city_manual(message: Message, state: FSMContext) -> None:
 @router.callback_query(ReviewForm.district, lambda c: c.data == CB_SKIP)
 async def skip_district(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(district=None)
-    await state.set_state(ReviewForm.property_type)
-    await state.update_data(property_type_page=0)
-    await _show_property_type_picker(callback.message, page=0, edit=True)
+    await _go_to_street_step(callback.message, state, edit=True)
     await callback.answer()
 
 
@@ -333,9 +341,7 @@ async def process_district(message: Message, state: FSMContext) -> None:
     )
     if exact:
         await state.update_data(district=exact["name"], district_id=exact["id"])
-        await state.update_data(property_type_page=0)
-        await state.set_state(ReviewForm.property_type)
-        await _show_property_type_picker(message, page=0, edit=False)
+        await _go_to_street_step(message, state)
         return
 
     # "Умные подсказки" по району — не создаём новый, пока есть совпадения.
@@ -363,9 +369,108 @@ async def process_district(message: Message, state: FSMContext) -> None:
 
     row = get_or_create_district(city_id, district)
     await state.update_data(district=row["name"], district_id=row["id"])
+    await _go_to_street_step(message, state)
+
+
+async def _go_to_street_step(
+    message: Message, state: FSMContext, *, edit: bool = False
+) -> None:
+    await state.set_state(ReviewForm.street_or_complex)
+    text = (
+        "Укажите <b>улицу или ж.к.</b>. Это обязательное поле.\n\n"
+        "Примеры:\n"
+        "ул. Иван Вазов\n"
+        "ж.к. Лазур\n"
+        "ж.к. Меден рудник"
+    )
+    if edit:
+        await message.edit_text(text, reply_markup=cancel_kb())
+    else:
+        await message.answer(text, reply_markup=cancel_kb())
+
+
+async def _go_to_building_step(
+    message: Message, state: FSMContext, *, edit: bool = False
+) -> None:
+    await state.set_state(ReviewForm.building_number)
+    text = (
+        "Укажите <b>номер дома или блока</b>.\n\n"
+        "Если не знаете или не хотите указывать — нажмите «Пропустить». "
+        "Тогда будет сохранено значение <code>X</code>."
+    )
+    if edit:
+        await message.edit_text(text, reply_markup=skip_kb())
+    else:
+        await message.answer(text, reply_markup=skip_kb())
+
+
+async def _go_to_apartment_step(
+    message: Message, state: FSMContext, *, edit: bool = False
+) -> None:
+    await state.set_state(ReviewForm.apartment_number)
+    text = (
+        "Укажите <b>номер квартиры</b>, если хотите.\n\n"
+        "Это поле необязательное. Если вы его укажете, после модерации "
+        "квартира будет показана на сайте в адресе отзыва.\n\n"
+        "Если не хотите указывать квартиру — нажмите «Пропустить»."
+    )
+    if edit:
+        await message.edit_text(text, reply_markup=skip_kb())
+    else:
+        await message.answer(text, reply_markup=skip_kb())
+
+
+async def _go_to_property_type_step(
+    message: Message, state: FSMContext, *, edit: bool = False
+) -> None:
     await state.update_data(property_type_page=0)
     await state.set_state(ReviewForm.property_type)
-    await _show_property_type_picker(message, page=0, edit=False)
+    await _show_property_type_picker(message, page=0, edit=edit)
+
+
+@router.message(ReviewForm.street_or_complex)
+async def process_street_or_complex(message: Message, state: FSMContext) -> None:
+    street = normalize_street_or_complex(message.text)
+    if not street:
+        await message.answer(
+            "Улица или ж.к. обязательны. Введите адрес ещё раз.",
+            reply_markup=cancel_kb(),
+        )
+        return
+    await state.update_data(street_or_complex=street)
+    await _go_to_building_step(message, state)
+
+
+@router.callback_query(ReviewForm.building_number, lambda c: c.data == CB_SKIP)
+async def skip_building_number(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(building_number="X")
+    await callback.message.answer("Дом/блок: X")
+    await _go_to_apartment_step(callback.message, state, edit=True)
+    await callback.answer()
+
+
+@router.message(ReviewForm.building_number)
+async def process_building_number(message: Message, state: FSMContext) -> None:
+    building = normalize_building_number(message.text)
+    await state.update_data(building_number=building)
+    await message.answer(f"Дом/блок: {building}")
+    await _go_to_apartment_step(message, state)
+
+
+@router.callback_query(ReviewForm.apartment_number, lambda c: c.data == CB_SKIP)
+async def skip_apartment_number(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(apartment_number=None)
+    await callback.message.answer("Квартира: не указана")
+    await _go_to_property_type_step(callback.message, state, edit=True)
+    await callback.answer()
+
+
+@router.message(ReviewForm.apartment_number)
+async def process_apartment_number(message: Message, state: FSMContext) -> None:
+    apartment = normalize_apartment_number(message.text)
+    await state.update_data(apartment_number=apartment)
+    await message.answer(f"Квартира: {format_apartment_label(apartment)}")
+    await _go_to_property_type_step(message, state)
 
 
 async def _show_district_picker(
@@ -411,9 +516,7 @@ async def pick_district(callback: CallbackQuery, state: FSMContext) -> None:
         return
 
     await state.update_data(district=row["name"], district_id=row["id"])
-    await state.update_data(property_type_page=0)
-    await state.set_state(ReviewForm.property_type)
-    await _show_property_type_picker(callback.message, page=0, edit=True)
+    await _go_to_street_step(callback.message, state, edit=True)
     await callback.answer()
 
 
@@ -440,9 +543,7 @@ async def process_district_manual(message: Message, state: FSMContext) -> None:
     district = (message.text or "").strip()
     if district == "-":
         await state.update_data(district=None)
-        await state.update_data(property_type_page=0)
-        await state.set_state(ReviewForm.property_type)
-        await _show_property_type_picker(message, page=0, edit=False)
+        await _go_to_street_step(message, state)
         return
 
     err = validate_catalog_label(district)
@@ -457,9 +558,7 @@ async def process_district_manual(message: Message, state: FSMContext) -> None:
         return
     row = get_or_create_district(city_id, district)
     await state.update_data(district=row["name"], district_id=row["id"])
-    await state.update_data(property_type_page=0)
-    await state.set_state(ReviewForm.property_type)
-    await _show_property_type_picker(message, page=0, edit=False)
+    await _go_to_street_step(message, state)
 
 
 @router.callback_query(ReviewForm.property_type, lambda c: c.data == CB_SKIP)
@@ -883,6 +982,9 @@ async def confirm_send(callback: CallbackQuery, state: FSMContext, bot: Bot) -> 
                     "author_telegram_id": callback.from_user.id,
                     "author_telegram_username": callback.from_user.username,
                     "author_telegram_name": callback.from_user.full_name,
+                    "street_or_complex": data.get("street_or_complex"),
+                    "building_number": data.get("building_number", "X"),
+                    "apartment_number": data.get("apartment_number"),
                     "public_title": data.get("public_title"),
                     "public_text": data.get("public_text"),
                     "private_text": data.get("private_text"),
@@ -980,8 +1082,7 @@ async def _build_summary(data: dict) -> str:
         evidence_line = "<b>Доказательства:</b> не приложены"
     lines = [
         f"<b>Тип:</b> {target}",
-        f"<b>Город:</b> {data.get('city', '—')}",
-        f"<b>Район:</b> {data.get('district') or '—'}",
+        format_address_block(data),
         f"<b>Жильё:</b> {data.get('property_type') or '—'}",
         f"<b>Оценка:</b> {data.get('rating', '—')}/5",
         f"<b>Имя на сайте:</b> {data.get('author_display_name', '—')}",
@@ -1010,8 +1111,9 @@ async def _notify_admins(
     text = (
         f"{heading}\n\n"
         f"ID: <code>{review['id']}</code>\n"
+        f"{format_address_block(review)}\n"
         f"Тип: {target}\n"
-        f"Город: {review.get('city')}\n"
+        f"Оценка: {review.get('rating') or '—'}/5\n"
         f"Заголовок: {review.get('public_title')}\n"
         f"Автор на сайте: {review.get('author_display_name') or '—'}\n"
         f"Telegram ID: <code>{review.get('author_telegram_id') or author.get('telegram_id') or '—'}</code>\n"

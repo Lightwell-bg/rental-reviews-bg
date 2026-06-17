@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AddressBlock } from "@/components/AddressBlock";
 import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
 import { TARGET_TYPE_LABELS } from "@/lib/constants";
@@ -79,19 +80,17 @@ export default async function ReviewDetailPage({
           <Stars rating={review.rating} />
         </div>
 
-        <dl className="mt-6 grid gap-2 text-sm text-zinc-600 sm:grid-cols-2">
+        <AddressBlock review={review} className="mt-6" />
+
+        <dl className="mt-4 grid gap-2 text-sm text-zinc-600 sm:grid-cols-2">
           <div>
-            <dt className="text-zinc-500">Город</dt>
-            <dd className="font-medium text-zinc-900">{review.city}</dd>
+            <dt className="text-zinc-500">Тип жилья</dt>
+            <dd className="font-medium text-zinc-900">
+              {review.property_type || "—"}
+            </dd>
           </div>
-          {review.district && (
-            <div>
-              <dt className="text-zinc-500">Район</dt>
-              <dd className="font-medium text-zinc-900">{review.district}</dd>
-            </div>
-          )}
           <div>
-            <dt className="text-zinc-500">Тип</dt>
+            <dt className="text-zinc-500">Тип отзыва</dt>
             <dd className="font-medium text-zinc-900">{typeLabel}</dd>
           </div>
           <div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { formatApartmentLabel, formatBuildingLabel } from "@/lib/address";
 import { TARGET_TYPE_LABELS } from "@/lib/constants";
 import { getRiskBadgeClass, getRiskLabel, parseAiFlags } from "@/lib/aiModeration";
 import { getAdminReviews } from "@/lib/admin/queries";
@@ -23,6 +24,7 @@ export default async function AdminReviewsPage({
   searchParams: Promise<{
     status?: string;
     city?: string;
+    address?: string;
     target_type?: string;
   }>;
 }) {
@@ -33,7 +35,16 @@ export default async function AdminReviewsPage({
     <div>
       <h1 className="text-2xl font-semibold">Отзывы</h1>
 
-      <form method="GET" className="mt-6 grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-4">
+      <form method="GET" className="mt-6 grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-5">
+        <label className="text-sm sm:col-span-2">
+          <span className="text-zinc-500">Поиск по адресу</span>
+          <input
+            name="address"
+            defaultValue={params.address ?? ""}
+            placeholder="улица, дом, квартира"
+            className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5"
+          />
+        </label>
         <label className="text-sm">
           <span className="text-zinc-500">Статус</span>
           <select
@@ -88,6 +99,10 @@ export default async function AdminReviewsPage({
             <tr>
               <th className="px-4 py-3">Дата</th>
               <th className="px-4 py-3">Город</th>
+              <th className="px-4 py-3">Район</th>
+              <th className="px-4 py-3">Улица/ж.к.</th>
+              <th className="px-4 py-3">Дом</th>
+              <th className="px-4 py-3">Кв.</th>
               <th className="px-4 py-3">Тип</th>
               <th className="px-4 py-3">★</th>
               <th className="px-4 py-3">Статус</th>
@@ -105,6 +120,18 @@ export default async function AdminReviewsPage({
                   {formatDate(r.created_at)}
                 </td>
                 <td className="px-4 py-3">{r.city}</td>
+                <td className="px-4 py-3">{r.district || "—"}</td>
+                <td className="px-4 py-3 max-w-[8rem] truncate">
+                  {r.street_or_complex || "—"}
+                </td>
+                <td className="px-4 py-3">
+                  {formatBuildingLabel(r.building_number)}
+                </td>
+                <td className="px-4 py-3">
+                  {r.apartment_number
+                    ? formatApartmentLabel(r.apartment_number)
+                    : "—"}
+                </td>
                 <td className="px-4 py-3">
                   {TARGET_TYPE_LABELS[r.target_type] ?? r.target_type}
                 </td>

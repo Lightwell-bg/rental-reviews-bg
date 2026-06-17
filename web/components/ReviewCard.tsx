@@ -1,3 +1,4 @@
+import { AddressBlock } from "@/components/AddressBlock";
 import Link from "next/link";
 
 import { TARGET_TYPE_LABELS } from "@/lib/constants";
@@ -35,17 +36,8 @@ export function ReviewCard({ review }: { review: ReviewPublic }) {
         <Stars rating={review.rating} />
       </div>
 
-      <dl className="mt-3 grid gap-1 text-sm text-zinc-600 sm:grid-cols-2">
-        <div>
-          <dt className="inline text-zinc-500">Город: </dt>
-          <dd className="inline">{review.city}</dd>
-        </div>
-        {review.district && (
-          <div>
-            <dt className="inline text-zinc-500">Район: </dt>
-            <dd className="inline">{review.district}</dd>
-          </div>
-        )}
+      <AddressBlock review={review} className="mt-3" />
+      <dl className="mt-2 grid gap-1 text-sm text-zinc-600 sm:grid-cols-2">
         <div>
           <dt className="inline text-zinc-500">Тип: </dt>
           <dd className="inline">{typeLabel}</dd>

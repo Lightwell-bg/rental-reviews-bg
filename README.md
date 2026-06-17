@@ -93,7 +93,8 @@ STORAGE_BUCKET=review-attachments
 Кратко:
 
 1. Создайте проект на [supabase.com](https://supabase.com).
-2. **SQL Editor** → выполните **один** файл: `supabase/migrations/001_init.sql`
+2. **SQL Editor** → выполните `supabase/migrations/001_init.sql` (новый проект)
+   - для существующей БД дополнительно: `upgrade_legacy.sql`, `002_address_fields.sql`
 3. **Storage** → New bucket → имя `review-attachments` → **Private**.
 
 ### 4. Сайт (web)

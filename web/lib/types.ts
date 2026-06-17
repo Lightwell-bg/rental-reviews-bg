@@ -3,6 +3,11 @@ export type ReviewPublic = {
   target_type: string;
   city: string;
   district: string | null;
+  street_or_complex: string | null;
+  building_number: string | null;
+  apartment_number: string | null;
+  address_public: string | null;
+  address_search_key?: string | null;
   property_type: string | null;
   author_display_name: string | null;
   public_title: string | null;
@@ -22,6 +27,7 @@ export type ReplyPublic = {
 
 export type ReviewFilters = {
   city?: string;
+  address?: string;
   target_type?: string;
   rating?: string;
 };
