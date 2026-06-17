@@ -102,6 +102,57 @@ export async function moderateReview(
   revalidatePath(`/reviews/${reviewId}`);
 }
 
+export async function permanentlyDeleteReview(reviewId: string) {
+  await requireAdmin();
+
+  const supabase = createAdminClient();
+  const { data: review, error: fetchError } = await supabase
+    .from("reviews")
+    .select("id, status")
+    .eq("id", reviewId)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!review) throw new Error("Заявка не найдена");
+  if (review.status !== "removed") {
+    throw new Error("Удалить навсегда можно только заявки со статусом removed");
+  }
+
+  const { data: evidence, error: evidenceError } = await supabase
+    .from("evidence_files")
+    .select("storage_path")
+    .eq("review_id", reviewId);
+
+  if (evidenceError) throw new Error(evidenceError.message);
+
+  const bucket = process.env.STORAGE_BUCKET ?? "review-attachments";
+  const paths = (evidence ?? [])
+    .map((file) => file.storage_path)
+    .filter((path): path is string => Boolean(path));
+
+  if (paths.length > 0) {
+    const { error: storageError } = await supabase.storage
+      .from(bucket)
+      .remove(paths);
+    if (storageError) {
+      throw new Error(`Не удалось удалить файлы: ${storageError.message}`);
+    }
+  }
+
+  const { error: deleteError } = await supabase
+    .from("reviews")
+    .delete()
+    .eq("id", reviewId);
+
+  if (deleteError) throw new Error(deleteError.message);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/reviews");
+  revalidatePath(`/admin/reviews/${reviewId}`);
+  revalidatePath("/reviews");
+  revalidatePath(`/reviews/${reviewId}`);
+}
+
 export async function updateReportStatus(
   reportId: string,
   action: "mark_in_progress" | "resolve" | "reject"

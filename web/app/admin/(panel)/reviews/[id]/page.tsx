@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ReviewModerationButtons } from "@/components/admin/ReviewModerationButtons";
+import { ReviewStatusBadge } from "@/components/admin/ReviewStatusBadge";
 import { AiModerationPanel } from "@/components/admin/AiModerationPanel";
 import { formatApartmentLabel, formatBuildingLabel } from "@/lib/address";
 import { TARGET_TYPE_LABELS } from "@/lib/constants";
@@ -62,7 +63,11 @@ export default async function AdminReviewDetailPage({
         <h1 className="text-2xl font-semibold">
           {review.public_title || "Без заголовка"}
         </h1>
-        <span className="rounded bg-zinc-200 px-3 py-1 text-sm">{review.status}</span>
+        <ReviewStatusBadge
+          reviewId={review.id}
+          status={review.status}
+          redirectAfterDelete="/admin/reviews"
+        />
       </div>
 
       <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-6">

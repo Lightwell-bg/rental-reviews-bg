@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ReviewStatusBadge } from "@/components/admin/ReviewStatusBadge";
 import { formatAddressShort } from "@/lib/address";
 import { TARGET_TYPE_LABELS } from "@/lib/constants";
 import { getRiskBadgeClass, getRiskLabel, parseAiFlags } from "@/lib/aiModeration";
@@ -129,9 +130,7 @@ export default async function AdminReviewsPage({
                     {r.rating ?? "—"}
                   </td>
                   <td className="px-3 py-3 align-top">
-                    <span className="inline-block max-w-full truncate rounded bg-zinc-100 px-2 py-0.5 text-xs">
-                      {r.status}
-                    </span>
+                    <ReviewStatusBadge reviewId={r.id} status={r.status} />
                   </td>
                   <td className="hidden px-3 py-3 align-top md:table-cell">
                     {ai?.risk_level && !ai.skipped ? (
