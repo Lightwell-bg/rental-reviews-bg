@@ -4,7 +4,8 @@ from aiogram.types import CallbackQuery
 
 from bot.config import STATUS_LABELS, TARGET_TYPE_LABELS
 from bot.utils.address import format_address_block
-from bot.db import get_or_create_user, get_review, get_user_reviews, count_evidence_files
+from bot.utils.organization import requires_organization_name
+from bot.db import get_or_create_user, get_review, get_user_reviews, count_evidence_files, get_review_organization_name
 from bot.keyboards import (
     CB_MY_REVIEW_PREFIX,
     CB_RESUBMIT_PREFIX,
@@ -80,11 +81,18 @@ def _format_review_card(review: dict, *, include_private: bool = False) -> str:
         f"<b>Статус:</b> {status}",
         f"<b>Имя на сайте:</b> {review.get('author_display_name') or '—'}",
         f"<b>Тип:</b> {target}",
+    ]
+    if requires_organization_name(review.get("target_type")):
+        org = get_review_organization_name(review["id"])
+        lines.append(f"<b>Название:</b> {org or '—'}")
+    lines.extend(
+        [
         format_address_block(review),
         f"<b>Оценка:</b> {review.get('rating') or '—'}/5",
         f"<b>Заголовок:</b> {review.get('public_title') or '—'}",
         f"<b>Текст:</b> {review.get('public_text') or '—'}",
-    ]
+        ]
+    )
     if include_private and review.get("private_text"):
         lines.append(f"<b>Приватный комментарий:</b>\n{review['private_text']}")
     if review.get("moderation_notes"):

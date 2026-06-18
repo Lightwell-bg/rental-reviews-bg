@@ -10,6 +10,14 @@ export const TARGET_TYPE_OPTIONS = Object.entries(TARGET_TYPE_LABELS).map(
   ([value, label]) => ({ value, label })
 );
 
+export const ORGANIZATION_TARGET_TYPES = ["agency", "management_company"] as const;
+
+export function requiresOrganizationName(targetType: string): boolean {
+  return (
+    targetType === "agency" || targetType === "management_company"
+  );
+}
+
 export const RATING_OPTIONS = [5, 4, 3, 2, 1] as const;
 
 export const SITE_NAME = "Rental Reviews BG";

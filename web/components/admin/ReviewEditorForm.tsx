@@ -8,7 +8,7 @@ import {
   REVIEW_STATUS_OPTIONS,
   type ReviewEditorValues,
 } from "@/lib/admin/reviewForm";
-import { RATING_OPTIONS, TARGET_TYPE_OPTIONS } from "@/lib/constants";
+import { RATING_OPTIONS, TARGET_TYPE_OPTIONS, requiresOrganizationName } from "@/lib/constants";
 
 type ReviewEditorFormProps = {
   initial: ReviewEditorValues;
@@ -23,6 +23,8 @@ const labelClass = "block text-sm font-medium text-zinc-700";
 export function ReviewEditorForm({ initial, mode }: ReviewEditorFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [targetType, setTargetType] = useState(initial.target_type);
+  const showOrganizationName = requiresOrganizationName(targetType);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -100,7 +102,8 @@ export function ReviewEditorForm({ initial, mode }: ReviewEditorFormProps) {
             Тип отзыва <span className="text-red-600">*</span>
             <select
               name="target_type"
-              defaultValue={initial.target_type}
+              value={targetType}
+              onChange={(e) => setTargetType(e.target.value)}
               className={inputClass}
               required
             >
@@ -111,6 +114,18 @@ export function ReviewEditorForm({ initial, mode }: ReviewEditorFormProps) {
               ))}
             </select>
           </label>
+          {showOrganizationName && (
+            <label className={`${labelClass} sm:col-span-2`}>
+              Название <span className="text-red-600">*</span>
+              <input
+                name="organization_name"
+                defaultValue={initial.organization_name}
+                className={inputClass}
+                required
+                placeholder="Название агентства или УК"
+              />
+            </label>
+          )}
           <label className={labelClass}>
             Рейтинг
             <select name="rating" defaultValue={initial.rating} className={inputClass}>

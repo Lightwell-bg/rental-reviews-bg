@@ -42,7 +42,7 @@ export default async function AdminEditReviewPage({
       </p>
       <div className="mt-8">
         <ReviewEditorForm
-          initial={reviewToEditorValues(data.review)}
+          initial={reviewToEditorValues(data.review, data.subjects)}
           mode="edit"
         />
       </div>

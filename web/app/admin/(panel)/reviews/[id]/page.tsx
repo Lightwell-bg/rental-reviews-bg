@@ -5,7 +5,7 @@ import { ReviewModerationButtons } from "@/components/admin/ReviewModerationButt
 import { ReviewStatusBadge } from "@/components/admin/ReviewStatusBadge";
 import { AiModerationPanel } from "@/components/admin/AiModerationPanel";
 import { formatApartmentLabel, formatBuildingLabel } from "@/lib/address";
-import { TARGET_TYPE_LABELS } from "@/lib/constants";
+import { TARGET_TYPE_LABELS, requiresOrganizationName } from "@/lib/constants";
 import { getAdminReviewDetail } from "@/lib/admin/queries";
 import { formatDate } from "@/lib/reviews";
 
@@ -52,6 +52,7 @@ export default async function AdminReviewDetailPage({
 
   const { review, subjects, evidence, logs } = data;
   const typeLabel = TARGET_TYPE_LABELS[review.target_type] ?? review.target_type;
+  const organizationName = subjects[0]?.public_name ?? null;
 
   return (
     <div>
@@ -84,6 +85,9 @@ export default async function AdminReviewDetailPage({
           <Field label="ID" value={review.id} mono />
           <Field label="Имя на сайте" value={review.author_display_name} />
           <Field label="Тип" value={typeLabel} />
+          {requiresOrganizationName(review.target_type) && (
+            <Field label="Название" value={organizationName} />
+          )}
           <Field label="Город" value={review.city} />
           <Field label="Район" value={review.district} />
           <Field label="Улица/ж.к." value={review.street_or_complex} />

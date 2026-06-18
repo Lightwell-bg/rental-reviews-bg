@@ -1,4 +1,4 @@
-import { TARGET_TYPE_LABELS } from "@/lib/constants";
+import { TARGET_TYPE_LABELS, requiresOrganizationName } from "@/lib/constants";
 import { normalizeBuildingNumber } from "@/lib/address";
 
 export const REVIEW_STATUS_OPTIONS = [
@@ -27,6 +27,7 @@ export type ReviewEditorValues = {
   rating: string;
   status: string;
   published_at_local: string;
+  organization_name: string;
 };
 
 export type ReviewEditorInput = {
@@ -45,6 +46,7 @@ export type ReviewEditorInput = {
   rating?: number | null;
   status: string;
   published_at: string | null;
+  organization_name?: string | null;
 };
 
 export function toDatetimeLocalValue(iso: string | null | undefined): string {
@@ -63,23 +65,26 @@ export function fromDatetimeLocalValue(value: string): string | null {
   return d.toISOString();
 }
 
-export function reviewToEditorValues(review: {
-  id: string;
-  target_type: string;
-  city: string;
-  district?: string | null;
-  street_or_complex?: string | null;
-  building_number?: string | null;
-  apartment_number?: string | null;
-  property_type?: string | null;
-  author_display_name?: string | null;
-  public_title?: string | null;
-  public_text?: string | null;
-  private_text?: string | null;
-  rating?: number | null;
-  status: string;
-  published_at?: string | null;
-}): ReviewEditorValues {
+export function reviewToEditorValues(
+  review: {
+    id: string;
+    target_type: string;
+    city: string;
+    district?: string | null;
+    street_or_complex?: string | null;
+    building_number?: string | null;
+    apartment_number?: string | null;
+    property_type?: string | null;
+    author_display_name?: string | null;
+    public_title?: string | null;
+    public_text?: string | null;
+    private_text?: string | null;
+    rating?: number | null;
+    status: string;
+    published_at?: string | null;
+  },
+  subjects?: { public_name?: string | null }[]
+): ReviewEditorValues {
   const building = review.building_number?.trim();
   return {
     id: review.id,
@@ -97,6 +102,7 @@ export function reviewToEditorValues(review: {
     rating: review.rating != null ? String(review.rating) : "",
     status: review.status,
     published_at_local: toDatetimeLocalValue(review.published_at),
+    organization_name: subjects?.[0]?.public_name ?? "",
   };
 }
 
@@ -116,6 +122,7 @@ export function emptyReviewEditorValues(): ReviewEditorValues {
     rating: "",
     status: "approved",
     published_at_local: toDatetimeLocalValue(new Date().toISOString()),
+    organization_name: "",
   };
 }
 
@@ -139,9 +146,13 @@ export function parseReviewEditorForm(
   const ratingRaw = String(formData.get("rating") ?? "").trim();
   const status = String(formData.get("status") ?? "").trim();
   const published_at_local = String(formData.get("published_at_local") ?? "").trim();
+  const organization_name = String(formData.get("organization_name") ?? "").trim();
 
   if (!target_type || !(target_type in TARGET_TYPE_LABELS)) {
     return { ok: false, error: "Выберите тип отзыва" };
+  }
+  if (requiresOrganizationName(target_type) && !organization_name) {
+    return { ok: false, error: "Укажите название агентства или управляющей компании" };
   }
   if (!city) return { ok: false, error: "Укажите город" };
   if (!street_or_complex) return { ok: false, error: "Укажите улицу или ж.к." };
@@ -186,6 +197,9 @@ export function parseReviewEditorForm(
       rating,
       status,
       published_at,
+      organization_name: requiresOrganizationName(target_type)
+        ? organization_name
+        : null,
     },
   };
 }

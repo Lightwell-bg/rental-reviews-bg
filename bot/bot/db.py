@@ -582,3 +582,45 @@ def add_moderation_log(
         .execute()
     )
     return result.data[0]
+
+
+def get_review_organization_name(review_id: str) -> str | None:
+    client = get_client()
+    result = (
+        client.table("subjects")
+        .select("public_name")
+        .eq("review_id", review_id)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return None
+    name = (result.data[0].get("public_name") or "").strip()
+    return name or None
+
+
+def sync_review_organization(
+    review_id: str,
+    target_type: str,
+    organization_name: str | None,
+) -> None:
+    from bot.utils.organization import requires_organization_name
+
+    client = get_client()
+    client.table("subjects").delete().eq("review_id", review_id).execute()
+
+    if not requires_organization_name(target_type):
+        return
+
+    name = (organization_name or "").strip()
+    if not name:
+        return
+
+    client.table("subjects").insert(
+        {
+            "review_id": review_id,
+            "subject_type": target_type,
+            "public_name": name,
+            "is_company": True,
+        }
+    ).execute()

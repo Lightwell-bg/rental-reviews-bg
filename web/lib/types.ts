@@ -15,6 +15,7 @@ export type ReviewPublic = {
   rating: number | null;
   created_at: string;
   published_at: string | null;
+  organization_name?: string | null;
 };
 
 export type ReplyPublic = {

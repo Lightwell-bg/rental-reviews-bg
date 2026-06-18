@@ -258,7 +258,9 @@ def resubmit_field_kb() -> InlineKeyboardMarkup:
     )
 
 
-def resubmit_menu_kb(*, suggested: set[str]) -> InlineKeyboardMarkup:
+def resubmit_menu_kb(
+    *, suggested: set[str], show_organization: bool = False
+) -> InlineKeyboardMarkup:
     def label(field: str, text: str) -> str:
         return f"👉 {text}" if field in suggested else text
 
@@ -275,6 +277,18 @@ def resubmit_menu_kb(*, suggested: set[str]) -> InlineKeyboardMarkup:
                 callback_data=f"{CB_RESUBMIT_MENU_PREFIX}title",
             )
         ],
+    ]
+    if show_organization:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=label("organization", "🏢 Изменить название"),
+                    callback_data=f"{CB_RESUBMIT_MENU_PREFIX}organization",
+                )
+            ]
+        )
+    rows.extend(
+        [
         [
             InlineKeyboardButton(
                 text=label("name", "👤 Изменить имя на сайте"),
@@ -300,7 +314,8 @@ def resubmit_menu_kb(*, suggested: set[str]) -> InlineKeyboardMarkup:
             )
         ],
         [InlineKeyboardButton(text="Отмена", callback_data=CB_CANCEL)],
-    ]
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 

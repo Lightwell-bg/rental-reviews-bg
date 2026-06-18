@@ -42,6 +42,12 @@ export function ReviewCard({ review }: { review: ReviewPublic }) {
           <dt className="inline text-zinc-500">Тип: </dt>
           <dd className="inline">{typeLabel}</dd>
         </div>
+        {review.organization_name && (
+          <div>
+            <dt className="inline text-zinc-500">Название: </dt>
+            <dd className="inline">{review.organization_name}</dd>
+          </div>
+        )}
         <div>
           <dt className="inline text-zinc-500">Опубликован: </dt>
           <dd className="inline">{formatDate(review.published_at)}</dd>

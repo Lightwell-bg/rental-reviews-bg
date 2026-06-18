@@ -93,6 +93,14 @@ export default async function ReviewDetailPage({
             <dt className="text-zinc-500">Тип отзыва</dt>
             <dd className="font-medium text-zinc-900">{typeLabel}</dd>
           </div>
+          {review.organization_name && (
+            <div>
+              <dt className="text-zinc-500">Название</dt>
+              <dd className="font-medium text-zinc-900">
+                {review.organization_name}
+              </dd>
+            </div>
+          )}
           <div>
             <dt className="text-zinc-500">Опубликован</dt>
             <dd className="font-medium text-zinc-900">

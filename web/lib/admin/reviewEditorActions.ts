@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/admin/auth";
 import { parseReviewEditorForm } from "@/lib/admin/reviewForm";
+import { requiresOrganizationName } from "@/lib/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 function buildReviewPayload(data: {
   target_type: string;
@@ -42,6 +44,29 @@ function buildReviewPayload(data: {
   };
 }
 
+async function syncReviewOrganization(
+  supabase: SupabaseClient,
+  reviewId: string,
+  targetType: string,
+  organizationName: string | null | undefined
+) {
+  await supabase.from("subjects").delete().eq("review_id", reviewId);
+
+  if (!requiresOrganizationName(targetType)) return;
+
+  const name = organizationName?.trim();
+  if (!name) return;
+
+  const { error } = await supabase.from("subjects").insert({
+    review_id: reviewId,
+    subject_type: targetType,
+    public_name: name,
+    is_company: true,
+  });
+
+  if (error) throw new Error(error.message);
+}
+
 export async function saveAdminReview(formData: FormData) {
   await requireAdmin();
 
@@ -61,6 +86,20 @@ export async function saveAdminReview(formData: FormData) {
       .eq("id", data.id);
 
     if (error) return { ok: false as const, error: error.message };
+
+    try {
+      await syncReviewOrganization(
+        supabase,
+        data.id,
+        data.target_type,
+        data.organization_name
+      );
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : "Не удалось сохранить название",
+      };
+    }
 
     await supabase.from("moderation_logs").insert({
       review_id: data.id,
@@ -86,6 +125,21 @@ export async function saveAdminReview(formData: FormData) {
   if (error) return { ok: false as const, error: error.message };
 
   const reviewId = created.id;
+
+  try {
+    await syncReviewOrganization(
+      supabase,
+      reviewId,
+      data.target_type,
+      data.organization_name
+    );
+  } catch (e) {
+    return {
+      ok: false as const,
+      error: e instanceof Error ? e.message : "Не удалось сохранить название",
+    };
+  }
+
   await supabase.from("moderation_logs").insert({
     review_id: reviewId,
     admin_id: null,

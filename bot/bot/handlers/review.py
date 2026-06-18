@@ -12,6 +12,7 @@ from bot.db import (
     create_review,
     get_or_create_user,
     get_review,
+    get_review_organization_name,
     get_or_create_city,
     get_or_create_district,
     get_or_create_property_type,
@@ -27,6 +28,7 @@ from bot.db import (
     search_catalog_cities_by_name_normalized,
     search_catalog_districts_by_city_and_name_normalized,
     search_catalog_property_types_by_name_normalized,
+    sync_review_organization,
     upload_evidence_bytes,
     update_review,
 )
@@ -74,6 +76,10 @@ from bot.utils.address import (
 from bot.utils.ai_moderation import analyze_review_for_moderation, format_ai_flags_for_admin
 from bot.utils.telegram import safe_callback_answer
 from bot.utils.catalog import normalize_catalog_name, validate_catalog_label
+from bot.utils.organization import (
+    requires_organization_name,
+    validate_organization_name,
+)
 from bot.utils.validators import validate_display_name, validate_public_text
 
 logger = logging.getLogger(__name__)
@@ -85,57 +91,22 @@ def _format_previous_review_content(data: dict) -> str:
     title = html_escape(str(data.get("public_title") or "—"))
     body = html_escape(str(data.get("public_text") or "—"))
     name = html_escape(str(data.get("author_display_name") or "—"))
-    return (
-        f"<b>Текущий заголовок:</b>\n<i>{title}</i>\n\n"
-        f"<b>Текущий текст отзыва:</b>\n<i>{body}</i>\n\n"
-        f"<b>Имя на сайте:</b> <i>{name}</i>"
-    )
-
-
-async def _show_resubmit_menu(
-    message: Message,
-    state: FSMContext,
-    *,
-    edit: bool = False,
-) -> None:
-    data = await state.get_data()
-    review_id = data.get("resubmit_review_id")
-    if not review_id:
-        return
-
-    await state.set_state(ReviewForm.resubmit_menu)
-    notes = data.get("moderation_notes")
-    suggested = suggested_resubmit_fields(notes)
-    existing_evidence = int(data.get("existing_evidence_count") or 0)
-
     lines = [
-        "<b>Исправление заявки</b>",
-        f"ID: <code>{review_id}</code>",
+        f"<b>Текущий заголовок:</b>\n<i>{title}</i>",
+        f"<b>Текущий текст отзыва:</b>\n<i>{body}</i>",
+        f"<b>Имя на сайте:</b> <i>{name}</i>",
     ]
-    if notes:
-        lines.append(f"<b>Что просит модератор:</b>\n{html_escape(str(notes))}")
+    org = (data.get("organization_name") or "").strip()
+    if requires_organization_name(data.get("target_type")):
+        org_display = html_escape(org) if org else "—"
+        lines.insert(0, f"<b>Название:</b> <i>{org_display}</i>")
+    return "\n\n".join(lines)
 
-    hints = resubmit_hint_lines(notes)
-    if hints:
-        lines.append("<b>Рекомендуем:</b>\n" + "\n".join(hints))
 
-    lines.append(
-        "<b>Что делать:</b> нажмите кнопку ниже, чтобы изменить нужное поле. "
-        "Можно править несколько раз. Когда всё готово — "
-        "«✅ Готово — отправить на модерацию»."
-    )
-    lines.append(_format_previous_review_content(data))
-    if existing_evidence:
-        lines.append(
-            f"<b>Доказательств уже загружено:</b> {existing_evidence} файл(ов)."
-        )
-
-    text = "\n\n".join(lines)
-    kb = resubmit_menu_kb(suggested=suggested)
-    if edit:
-        await message.edit_text(text, reply_markup=kb)
-    else:
-        await message.answer(text, reply_markup=kb)
+def _organization_name_missing(data: dict) -> bool:
+    if not requires_organization_name(data.get("target_type")):
+        return False
+    return not (data.get("organization_name") or "").strip()
 
 
 async def _show_resubmit_menu(
@@ -176,7 +147,10 @@ async def _show_resubmit_menu(
         )
 
     text = "\n\n".join(lines)
-    kb = resubmit_menu_kb(suggested=suggested)
+    show_org = requires_organization_name(data.get("target_type"))
+    if show_org and _organization_name_missing(data):
+        suggested = set(suggested) | {"organization"}
+    kb = resubmit_menu_kb(suggested=suggested, show_organization=show_org)
     await _send_or_edit(message, text=text, reply_markup=kb, edit=edit)
 
 
@@ -251,6 +225,7 @@ async def begin_resubmit_flow(
         public_text=review.get("public_text"),
         private_text=review.get("private_text"),
         author_display_name=review.get("author_display_name"),
+        organization_name=get_review_organization_name(review_id),
         moderation_notes=review.get("moderation_notes"),
         file_ids=[],
         review_id=None,
@@ -271,6 +246,12 @@ async def resubmit_menu_action(callback: CallbackQuery, state: FSMContext) -> No
     data = await state.get_data()
 
     if action == "submit":
+        if _organization_name_missing(data):
+            await callback.answer(
+                "Укажите название агентства или УК",
+                show_alert=True,
+            )
+            return
         await state.set_state(ReviewForm.confirmation)
         summary = await _build_summary(data)
         await callback.message.edit_text(
@@ -326,6 +307,19 @@ async def resubmit_menu_action(callback: CallbackQuery, state: FSMContext) -> No
         await callback.answer()
         return
 
+    if action == "organization":
+        await state.update_data(resubmit_editing_field="organization")
+        await state.set_state(ReviewForm.organization_name)
+        org = html_escape(str(data.get("organization_name") or "—"))
+        await callback.message.edit_text(
+            "<b>🏢 Название организации</b>\n\n"
+            f"<b>Текущее название:</b> <i>{org}</i>\n\n"
+            "Отправьте <b>название</b> агентства или управляющей компании.",
+            reply_markup=resubmit_field_kb(),
+        )
+        await callback.answer()
+        return
+
     if action == "private":
         await state.update_data(resubmit_editing_field="private")
         await state.set_state(ReviewForm.private_text)
@@ -375,12 +369,58 @@ async def process_target_type(callback: CallbackQuery, state: FSMContext) -> Non
         await callback.answer("Неверный тип", show_alert=True)
         return
     await state.update_data(target_type=code)
+    if requires_organization_name(code):
+        await state.set_state(ReviewForm.organization_name)
+        await callback.message.edit_text(
+            f"Тип: <b>{TARGET_TYPE_LABELS[code]}</b>\n\n"
+            "Укажите <b>название</b> агентства или управляющей компании:",
+            reply_markup=cancel_kb(),
+        )
+    else:
+        await state.update_data(organization_name=None)
+        await _go_to_city_step(
+            callback.message,
+            state,
+            prefix=TARGET_TYPE_LABELS[code],
+            edit=True,
+        )
+    await callback.answer()
+
+
+async def _go_to_city_step(
+    message: Message, state: FSMContext, *, prefix: str, edit: bool
+) -> None:
     await state.set_state(ReviewForm.city)
     await state.update_data(city_page=0)
-    await _show_city_picker(
-        callback.message, page=0, prefix=TARGET_TYPE_LABELS[code], edit=True
-    )
-    await callback.answer()
+    await _show_city_picker(message, page=0, prefix=prefix, edit=edit)
+
+
+@router.message(ReviewForm.organization_name)
+async def process_organization_name(message: Message, state: FSMContext) -> None:
+    name = (message.text or "").strip()
+    data = await state.get_data()
+    is_resubmit = bool(data.get("resubmit_review_id"))
+    kb = resubmit_field_kb() if is_resubmit else cancel_kb()
+
+    validation = validate_organization_name(name)
+    if validation.has_risk:
+        warnings = "\n".join(f"• {w}" for w in validation.warnings)
+        await message.answer(
+            f"<b>Проверьте название:</b>\n{warnings}",
+            reply_markup=kb,
+        )
+        return
+
+    await state.update_data(organization_name=name)
+    if is_resubmit:
+        await state.update_data(resubmit_editing_field=None)
+        await message.answer(f"✅ Название обновлено: <b>{html_escape(name)}</b>")
+        await _show_resubmit_menu(message, state)
+        return
+
+    target = TARGET_TYPE_LABELS.get(data.get("target_type", ""), "")
+    await message.answer(f"Название: <b>{html_escape(name)}</b>")
+    await _go_to_city_step(message, state, prefix=target, edit=False)
 
 
 async def _show_city_picker(
@@ -1207,6 +1247,21 @@ async def confirm_send(callback: CallbackQuery, state: FSMContext, bot: Bot) -> 
     )
     resubmit_id = data.get("resubmit_review_id")
 
+    if _organization_name_missing(data):
+        if resubmit_id:
+            await callback.message.edit_text(
+                "Для агентства или управляющей компании нужно указать название. "
+                "Нажмите «Изменить название» в меню правок.",
+            )
+            await _show_resubmit_menu(callback.message, state, edit=False)
+        else:
+            await callback.message.edit_text(
+                "Для агентства или управляющей компании нужно указать название. "
+                "Начните заявку заново и заполните это поле.",
+                reply_markup=main_menu_kb(),
+            )
+        return
+
     try:
         await callback.message.edit_text("Проверяем текст…")
 
@@ -1283,6 +1338,12 @@ async def confirm_send(callback: CallbackQuery, state: FSMContext, bot: Bot) -> 
         for file_id in file_ids:
             await _upload_telegram_file(bot, file_id, review_id, app_user["id"])
 
+        sync_review_organization(
+            review_id,
+            data.get("target_type", ""),
+            data.get("organization_name"),
+        )
+
         await state.clear()
         await callback.message.edit_text(success_text, reply_markup=main_menu_kb())
         await _notify_admins(bot, review, app_user, is_resubmit=bool(resubmit_id))
@@ -1336,6 +1397,12 @@ async def _build_summary(data: dict) -> str:
         evidence_line = "<b>Доказательства:</b> не приложены"
     lines = [
         f"<b>Тип:</b> {target}",
+    ]
+    org = (data.get("organization_name") or "").strip()
+    if requires_organization_name(data.get("target_type")):
+        lines.append(f"<b>Название:</b> {org or '—'}")
+    lines.extend(
+        [
         format_address_block(data),
         f"<b>Жильё:</b> {data.get('property_type') or '—'}",
         f"<b>Оценка:</b> {data.get('rating', '—')}/5",
@@ -1343,7 +1410,8 @@ async def _build_summary(data: dict) -> str:
         f"<b>Заголовок:</b> {data.get('public_title', '—')}",
         f"<b>Текст:</b> {data.get('public_text', '—')}",
         evidence_line,
-    ]
+        ]
+    )
     if data.get("private_text"):
         lines.append("<b>Приватный комментарий:</b> (будет виден только модератору)")
     return "\n".join(lines)
@@ -1357,6 +1425,11 @@ async def _notify_admins(
         return
 
     target = TARGET_TYPE_LABELS.get(review.get("target_type", ""), review.get("target_type"))
+    org_line = ""
+    if requires_organization_name(review.get("target_type")):
+        org = get_review_organization_name(review["id"])
+        if org:
+            org_line = f"Название: {org}\n"
     heading = (
         "<b>Исправленный отзыв на модерации</b>"
         if is_resubmit
@@ -1367,6 +1440,7 @@ async def _notify_admins(
         f"ID: <code>{review['id']}</code>\n"
         f"{format_address_block(review)}\n"
         f"Тип: {target}\n"
+        f"{org_line}"
         f"Оценка: {review.get('rating') or '—'}/5\n"
         f"Заголовок: {review.get('public_title')}\n"
         f"Автор на сайте: {review.get('author_display_name') or '—'}\n"

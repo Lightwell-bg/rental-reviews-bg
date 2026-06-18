@@ -1,8 +1,33 @@
 import type { ReplyPublic, ReviewFilters, ReviewPublic } from "@/lib/types";
+import { requiresOrganizationName } from "@/lib/constants";
 import { createServerClient } from "@/lib/supabase/server";
 
 const REVIEW_PUBLIC_COLUMNS =
   "id, target_type, city, district, street_or_complex, building_number, apartment_number, address_public, address_search_key, property_type, author_display_name, public_title, public_text, rating, created_at, published_at";
+
+async function attachOrganizationNames(
+  reviews: ReviewPublic[]
+): Promise<ReviewPublic[]> {
+  const ids = reviews
+    .filter((r) => requiresOrganizationName(r.target_type))
+    .map((r) => r.id);
+  if (ids.length === 0) return reviews;
+
+  const supabase = createServerClient();
+  const { data: subjects } = await supabase
+    .from("subjects_public")
+    .select("review_id, public_name")
+    .in("review_id", ids);
+
+  const byReview = new Map(
+    (subjects ?? []).map((s) => [s.review_id, s.public_name as string | null])
+  );
+
+  return reviews.map((r) => ({
+    ...r,
+    organization_name: byReview.get(r.id) ?? null,
+  }));
+}
 
 export async function getApprovedReviews(
   filters: ReviewFilters = {}
@@ -35,7 +60,8 @@ export async function getApprovedReviews(
     if (error) {
       return { data: [], error: error.message };
     }
-    return { data: (data ?? []) as ReviewPublic[], error: null };
+    const enriched = await attachOrganizationNames((data ?? []) as ReviewPublic[]);
+    return { data: enriched, error: null };
   } catch (e) {
     return {
       data: [],
@@ -58,7 +84,11 @@ export async function getApprovedReviewById(
     if (error) {
       return { data: null, error: error.message };
     }
-    return { data: data as ReviewPublic | null, error: null };
+    if (!data) {
+      return { data: null, error: null };
+    }
+    const [enriched] = await attachOrganizationNames([data as ReviewPublic]);
+    return { data: enriched, error: null };
   } catch (e) {
     return {
       data: null,

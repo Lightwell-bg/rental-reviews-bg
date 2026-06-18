@@ -3,6 +3,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 class ReviewForm(StatesGroup):
     target_type = State()
+    organization_name = State()
     city = State()
     city_manual = State()
     district = State()
