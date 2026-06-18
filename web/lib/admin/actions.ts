@@ -48,14 +48,14 @@ export async function moderateReview(
   const supabase = createAdminClient();
   const { data: previousReview } = await supabase
     .from("reviews")
-    .select("status")
+    .select("status, published_at")
     .eq("id", reviewId)
     .single();
 
   const trimmedComment = options?.comment?.trim() || undefined;
   const payload: Record<string, unknown> = { status };
 
-  if (status === "approved") {
+  if (status === "approved" && !previousReview?.published_at) {
     payload.published_at = new Date().toISOString();
   }
 

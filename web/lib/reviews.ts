@@ -134,3 +134,11 @@ export function formatDate(date: string | null): string {
     year: "numeric",
   }).format(new Date(date));
 }
+
+/** Дата для отображения: публикация на сайте, иначе дата создания заявки. */
+export function formatReviewDate(review: {
+  published_at?: string | null;
+  created_at?: string | null;
+}): string {
+  return formatDate(review.published_at ?? review.created_at ?? null);
+}

@@ -49,6 +49,7 @@ export async function getAdminReviews(filters: {
     .select(
       "id, city, district, street_or_complex, building_number, apartment_number, target_type, rating, status, public_title, created_at, published_at, ai_flags"
     )
+    .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(100);
 

@@ -5,7 +5,7 @@ import { formatAddressShort } from "@/lib/address";
 import { TARGET_TYPE_LABELS } from "@/lib/constants";
 import { getRiskBadgeClass, getRiskLabel, parseAiFlags } from "@/lib/aiModeration";
 import { getAdminReviews } from "@/lib/admin/queries";
-import { formatDate } from "@/lib/reviews";
+import { formatReviewDate } from "@/lib/reviews";
 
 export const metadata = { title: "Отзывы — админка" };
 
@@ -122,7 +122,7 @@ export default async function AdminReviewsPage({
               return (
                 <tr key={r.id} className="border-b border-zinc-100">
                   <td className="px-3 py-3 align-top text-xs whitespace-nowrap text-zinc-600">
-                    {formatDate(r.created_at)}
+                    {formatReviewDate(r)}
                   </td>
                   <td className="px-3 py-3 align-top">
                     <span className="line-clamp-2" title={formatAddressShort(r)}>
