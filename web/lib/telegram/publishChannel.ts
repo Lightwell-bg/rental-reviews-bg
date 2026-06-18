@@ -178,10 +178,11 @@ const REVIEW_CHANNEL_COLUMNS =
 
 export async function publishApprovedReviewIfNeeded(
   reviewId: string,
-  previousStatus: string | null | undefined
+  previousStatus: string | null | undefined,
+  options?: { force?: boolean }
 ): Promise<PublishChannelResult | null> {
   if (!isChannelPublishConfigured()) return null;
-  if (previousStatus === "approved") return null;
+  if (previousStatus === "approved" && !options?.force) return null;
 
   const supabase = createAdminClient();
   const { data: review, error } = await supabase

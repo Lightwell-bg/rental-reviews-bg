@@ -38,12 +38,13 @@ export function ReviewModerationButtons({ reviewId }: { reviewId: string }) {
 
     startTransition(async () => {
       try {
-        await moderateReview(reviewId, action, {
+        const result = await moderateReview(reviewId, action, {
           reasonCode,
           comment: comment.trim() || undefined,
         });
         setOpenAction(null);
         setComment("");
+        window.alert(result.message);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Ошибка модерации";
@@ -75,9 +76,10 @@ export function ReviewModerationButtons({ reviewId }: { reviewId: string }) {
               if (optional === null) return;
               startTransition(async () => {
                 try {
-                  await moderateReview(reviewId, a.id, {
+                  const result = await moderateReview(reviewId, a.id, {
                     comment: optional.trim() || undefined,
                   });
+                  window.alert(result.message);
                 } catch (error) {
                   const message =
                     error instanceof Error ? error.message : "Ошибка модерации";

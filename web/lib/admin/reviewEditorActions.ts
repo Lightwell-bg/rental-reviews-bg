@@ -6,7 +6,10 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/auth";
 import { parseReviewEditorForm } from "@/lib/admin/reviewForm";
 import { requiresOrganizationName } from "@/lib/constants";
-import { runApprovalNotifications } from "@/lib/telegram/approvalNotifications";
+import {
+  formatTelegramDeliveryLog,
+  runApprovalNotifications,
+} from "@/lib/telegram/approvalNotifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -116,11 +119,20 @@ export async function saveAdminReview(formData: FormData) {
     });
 
     if (data.status === "approved") {
-      const { warnings, errors } = await runApprovalNotifications(
+      const telegramResult = await runApprovalNotifications(
         data.id,
         previousReview?.status
       );
-      const parts = [...errors, ...warnings];
+      await supabase.from("moderation_logs").insert({
+        review_id: data.id,
+        admin_id: null,
+        action: "telegram_delivery",
+        comment: formatTelegramDeliveryLog(telegramResult),
+      });
+      const parts = [
+        ...telegramResult.errors,
+        ...telegramResult.warnings,
+      ];
       if (parts.length > 0) {
         return {
           ok: false as const,
@@ -169,8 +181,14 @@ export async function saveAdminReview(formData: FormData) {
   });
 
   if (data.status === "approved") {
-    const { warnings, errors } = await runApprovalNotifications(reviewId, null);
-    const parts = [...errors, ...warnings];
+    const telegramResult = await runApprovalNotifications(reviewId, null);
+    await supabase.from("moderation_logs").insert({
+      review_id: reviewId,
+      admin_id: null,
+      action: "telegram_delivery",
+      comment: formatTelegramDeliveryLog(telegramResult),
+    });
+    const parts = [...telegramResult.errors, ...telegramResult.warnings];
     if (parts.length > 0) {
       return {
         ok: false as const,

@@ -475,10 +475,12 @@ Vercel подберёт версию по проекту. Рекомендует
 | `ADMIN_SECRET` | **да** | Придумайте длинный пароль (см. ниже) | Вход в `/admin/login` |
 | `SUPABASE_URL` | **да** | То же, что `NEXT_PUBLIC_SUPABASE_URL` | Серверная админка |
 | `SUPABASE_SERVICE_ROLE_KEY` | **да** | Supabase → API → `service_role` `secret` | Модерация, обход RLS **только на сервере** |
-| `TELEGRAM_BOT_TOKEN` | **да*** | Тот же токен, что у бота на VPS / в корневом `.env` | Уведомления автору из web `/admin` |
+| `TELEGRAM_BOT_TOKEN` | **да*** | Тот же токен, что у бота на VPS / в корневом `.env` | Уведомления автору и публикация в канал из web `/admin` |
+| `TELEGRAM_PUBLISH_CHANNEL_ID` | **да*** | `@channel` или `-100…` | Пост в канал при одобрении через сайт |
+| `PUBLIC_SITE_URL` | **да*** | `https://reviews.bginfo.eu` | Ссылка на отзыв в Telegram-сообщениях |
 | `STORAGE_BUCKET` | нет | `review-attachments` | Имя bucket (по умолчанию то же) |
 
-\* Без токена сайт и админка работают, но при **Request changes** автор **не получит** сообщение в Telegram.
+\* Без `TELEGRAM_BOT_TOKEN` / `TELEGRAM_PUBLISH_CHANNEL_ID` / `PUBLIC_SITE_URL` одобрение сохранится, но Telegram из web-админки не сработает — в alert и в логе `telegram_delivery` будет предупреждение.
 
 #### Как сгенерировать `ADMIN_SECRET`
 
@@ -529,6 +531,8 @@ ADMIN_SECRET=a1b2c3d4e5f6...48_символов
 SUPABASE_URL=https://abcdefgh.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...service_role...
 TELEGRAM_BOT_TOKEN=7123456789:AAH...
+TELEGRAM_PUBLISH_CHANNEL_ID=@your_reviews_channel
+PUBLIC_SITE_URL=https://reviews.bginfo.eu
 STORAGE_BUCKET=review-attachments
 ```
 

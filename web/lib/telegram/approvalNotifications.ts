@@ -13,6 +13,14 @@ const REVIEW_NOTIFY_COLUMNS =
 export type ApprovalNotificationResult = {
   warnings: string[];
   errors: string[];
+  info: string[];
+  authorSent: boolean;
+  channelSent: boolean;
+};
+
+export type ApprovalNotificationOptions = {
+  /** Повторная отправка при уже approved (кнопка Approve в админке). */
+  force?: boolean;
 };
 
 function parseTelegramApiError(body: string): string {
@@ -26,13 +34,20 @@ function parseTelegramApiError(body: string): string {
 
 export async function runApprovalNotifications(
   reviewId: string,
-  previousStatus: string | null | undefined
+  previousStatus: string | null | undefined,
+  options?: ApprovalNotificationOptions
 ): Promise<ApprovalNotificationResult> {
   const warnings: string[] = [];
   const errors: string[] = [];
+  const info: string[] = [];
+  let authorSent = false;
+  let channelSent = false;
 
-  if (previousStatus === "approved") {
-    return { warnings, errors };
+  if (previousStatus === "approved" && !options?.force) {
+    warnings.push(
+      "Отзыв уже был одобрен — уведомления не отправлялись. Нажмите Approve ещё раз (повторная отправка) или измените статус и одобрите снова."
+    );
+    return { warnings, errors, info, authorSent, channelSent };
   }
 
   const supabase = createAdminClient();
@@ -44,11 +59,11 @@ export async function runApprovalNotifications(
 
   if (error || !review) {
     errors.push("Не удалось загрузить отзыв для уведомлений.");
-    return { warnings, errors };
+    return { warnings, errors, info, authorSent, channelSent };
   }
 
   if (review.status !== "approved") {
-    return { warnings, errors };
+    return { warnings, errors, info, authorSent, channelSent };
   }
 
   if (shouldNotifyAuthor(review.status)) {
@@ -73,6 +88,9 @@ export async function runApprovalNotifications(
         errors.push(
           `Telegram-уведомление автору не отправлено: ${parseTelegramApiError(notifyResult.error)}`
         );
+      } else {
+        authorSent = true;
+        info.push("Уведомление автору в Telegram отправлено.");
       }
     }
   }
@@ -84,16 +102,20 @@ export async function runApprovalNotifications(
   } else {
     const channelResult = await publishApprovedReviewIfNeeded(
       reviewId,
-      previousStatus
+      previousStatus,
+      { force: options?.force }
     );
     if (channelResult && !channelResult.ok) {
       errors.push(
         `Публикация в Telegram-канал не удалась: ${parseTelegramApiError(channelResult.error)}`
       );
+    } else if (channelResult?.ok) {
+      channelSent = true;
+      info.push("Отзыв опубликован в Telegram-канале.");
     }
   }
 
-  return { warnings, errors };
+  return { warnings, errors, info, authorSent, channelSent };
 }
 
 export async function notifyAuthorForStatusChange(
@@ -101,6 +123,7 @@ export async function notifyAuthorForStatusChange(
 ): Promise<ApprovalNotificationResult> {
   const warnings: string[] = [];
   const errors: string[] = [];
+  const info: string[] = [];
 
   const supabase = createAdminClient();
   const { data: review, error } = await supabase
@@ -110,7 +133,13 @@ export async function notifyAuthorForStatusChange(
     .single();
 
   if (error || !review || !shouldNotifyAuthor(review.status)) {
-    return { warnings, errors };
+    return {
+      warnings,
+      errors,
+      info,
+      authorSent: false,
+      channelSent: false,
+    };
   }
 
   let author: { telegram_id?: number | null } | null = null;
@@ -126,7 +155,13 @@ export async function notifyAuthorForStatusChange(
   const telegramId = resolveAuthorTelegramId(review, author);
   if (!telegramId) {
     errors.push("У автора нет telegram_id — уведомление не отправлено.");
-    return { warnings, errors };
+    return {
+      warnings,
+      errors,
+      info,
+      authorSent: false,
+      channelSent: false,
+    };
   }
 
   const notifyResult = await notifyReviewAuthor(telegramId, review);
@@ -134,7 +169,29 @@ export async function notifyAuthorForStatusChange(
     errors.push(
       `Telegram-уведомление не отправлено: ${parseTelegramApiError(notifyResult.error)}`
     );
+  } else {
+    info.push("Уведомление автору в Telegram отправлено.");
   }
 
-  return { warnings, errors };
+  return {
+    warnings,
+    errors,
+    info,
+    authorSent: notifyResult.ok,
+    channelSent: false,
+  };
+}
+
+export function formatTelegramDeliveryLog(
+  result: ApprovalNotificationResult
+): string {
+  const parts = [
+    `author=${result.authorSent ? "ok" : "no"}`,
+    `channel=${result.channelSent ? "ok" : "no"}`,
+  ];
+  const details = [...result.errors, ...result.warnings];
+  if (details.length > 0) {
+    parts.push(details.join("; "));
+  }
+  return `Telegram: ${parts.join(", ")}`;
 }

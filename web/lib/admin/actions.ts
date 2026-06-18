@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  formatTelegramDeliveryLog,
   notifyAuthorForStatusChange,
   runApprovalNotifications,
 } from "@/lib/telegram/approvalNotifications";
@@ -18,11 +19,25 @@ const REVIEW_ACTIONS: Record<string, string> = {
   remove: "removed",
 };
 
+export type ModerateReviewResult = {
+  ok: true;
+  message: string;
+};
+
+function buildModerationFeedback(parts: {
+  errors: string[];
+  warnings: string[];
+  info: string[];
+}): string {
+  const lines = [...parts.info, ...parts.warnings, ...parts.errors];
+  return lines.length > 0 ? lines.join("\n") : "Готово.";
+}
+
 export async function moderateReview(
   reviewId: string,
   action: string,
   options?: { reasonCode?: string; comment?: string }
-) {
+): Promise<ModerateReviewResult> {
   await requireAdmin();
 
   const status = REVIEW_ACTIONS[action];
@@ -72,24 +87,37 @@ export async function moderateReview(
 
   if (logError) throw new Error(logError.message);
 
+  let feedbackMessage = "Статус обновлён.";
+
   if (status === "approved") {
-    const { warnings, errors } = await runApprovalNotifications(
+    const telegramResult = await runApprovalNotifications(
       reviewId,
-      previousReview?.status
+      previousReview?.status,
+      { force: true }
     );
-    const parts = [...errors, ...warnings];
-    if (parts.length > 0) {
+
+    await supabase.from("moderation_logs").insert({
+      review_id: reviewId,
+      admin_id: null,
+      action: "telegram_delivery",
+      comment: formatTelegramDeliveryLog(telegramResult),
+    });
+
+    const { warnings, errors, info } = telegramResult;
+    feedbackMessage = buildModerationFeedback({ errors, warnings, info });
+    if (errors.length > 0) {
       throw new Error(
-        `Статус «approved» сохранён, но есть проблемы с Telegram:\n${parts.join("\n")}`
+        `Статус «approved» сохранён, но есть проблемы с Telegram:\n${feedbackMessage}`
       );
     }
   } else {
-    const { errors } = await notifyAuthorForStatusChange(reviewId);
-    if (errors.length > 0) {
+    const telegramResult = await notifyAuthorForStatusChange(reviewId);
+    if (telegramResult.errors.length > 0) {
       throw new Error(
-        `Статус сохранён, но Telegram-уведомление не отправлено: ${errors.join("; ")}`
+        `Статус сохранён, но Telegram-уведомление не отправлено: ${telegramResult.errors.join("; ")}`
       );
     }
+    feedbackMessage = buildModerationFeedback(telegramResult);
   }
 
   revalidatePath("/admin");
@@ -97,6 +125,8 @@ export async function moderateReview(
   revalidatePath(`/admin/reviews/${reviewId}`);
   revalidatePath("/reviews");
   revalidatePath(`/reviews/${reviewId}`);
+
+  return { ok: true, message: feedbackMessage };
 }
 
 export async function permanentlyDeleteReview(reviewId: string) {

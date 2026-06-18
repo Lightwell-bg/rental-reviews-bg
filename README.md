@@ -257,7 +257,11 @@ pytest
    ```
 5. Перезапустите бота и `npm run dev`.
 
-Если `TELEGRAM_PUBLISH_CHANNEL_ID` не задан — канал просто пропускается, одобрение работает как раньше. Повторное одобрение уже опубликованного отзыва **не дублирует** пост в канале.
+**На production (Vercel)** те же переменные обязательны в **Settings → Environment Variables → Production**: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PUBLISH_CHANNEL_ID`, `PUBLIC_SITE_URL`. Без них одобрение через сайт сохранит статус, но Telegram молча не сработает — после деплоя админка покажет предупреждение в alert.
+
+Если `TELEGRAM_PUBLISH_CHANNEL_ID` не задан — канал пропускается. Кнопка **Approve** в админке **всегда повторно** отправляет уведомление автору и пост в канал (даже если отзыв уже был approved). Сохранение через форму редактирования — только при **первом** переходе в approved.
+
+В логах модерации (`telegram_delivery`) видно: `author=ok/no`, `channel=ok/no`.
 
 ---
 
@@ -328,6 +332,8 @@ pytest
 | `/admin` — редирект на login (сайт) | Задайте `ADMIN_SECRET` в `web/.env.local`, войдите на `/admin/login` |
 | Админка: ошибка service role | Скопируйте `SUPABASE_SERVICE_ROLE_KEY` в `web/.env.local` (без `NEXT_PUBLIC`) |
 | Сайт: `permission denied for table reviews` | Перевыполните блок VIEW в `supabase/migrations/001_init.sql` или `upgrade_legacy.sql` |
+| Одобрил на сайте — автор/канал молчат | На **Vercel** задайте `TELEGRAM_BOT_TOKEN`, `TELEGRAM_PUBLISH_CHANNEL_ID`, `PUBLIC_SITE_URL` → **Redeploy**. В логах модерации ищите `telegram_delivery` |
+| Approve без alert / «ничего не изменилось» | Старый деплой или отзыв уже был approved до фикса — нажмите **Approve** снова; должен появиться alert с результатом |
 
 ---
 
