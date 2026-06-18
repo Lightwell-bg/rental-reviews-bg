@@ -14,10 +14,13 @@ export function ReviewDetailSeoPlaceholdersHelp({
         <p className="font-medium">Плейсхолдеры для каждого отзыва</p>
         <p className="mt-1 text-sky-900">
           В полях Title и Description ниже можно писать{" "}
-          <code className="rounded bg-sky-100 px-1">{"{title}"}</code>,{" "}
-          <code className="rounded bg-sky-100 px-1">{"{city}"}</code>,{" "}
-          <code className="rounded bg-sky-100 px-1">{"{excerpt}"}</code> — при
-          открытии страницы отзыва они заменятся данными этого отзыва.
+          {REVIEW_DETAIL_SEO_PLACEHOLDERS.map((item) => (
+            <code
+              key={item.key}
+              className="mr-1 rounded bg-sky-100 px-1"
+            >{`{${item.key}}`}</code>
+          ))}
+          — при открытии страницы отзыва они заменятся данными этого отзыва.
         </p>
       </div>
     );
@@ -102,7 +105,7 @@ export function ReviewDetailSeoPlaceholdersHelp({
         <li>
           Можно комбинировать:{" "}
           <code className="rounded bg-sky-100 px-1">
-            {"{title} ({city})"}
+            {"{title} — {target} ({property}) в {city}"}
           </code>
           .
         </li>

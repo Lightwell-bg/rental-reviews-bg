@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { TARGET_TYPE_LABELS } from "@/lib/constants";
+
 export const PAGE_SEO_PAGES = [
   {
     id: "home",
@@ -17,7 +19,7 @@ export const PAGE_SEO_PAGES = [
     id: "review_detail",
     path: "/reviews/[id]",
     label: "Страница отзыва",
-    placeholders: "{title}, {city}, {excerpt}",
+    placeholders: "{title}, {city}, {target}, {property}, {excerpt}",
   },
   {
     id: "privacy",
@@ -103,6 +105,22 @@ export const REVIEW_DETAIL_SEO_PLACEHOLDERS = [
     sample: "София",
   },
   {
+    key: "target",
+    label: "Тип отзыва (объект)",
+    description:
+      "О чём отзыв: Агентство, Арендодатель, Объект недвижимости, Управляющая компания и т.д.",
+    fallback: "Берётся из поля «Тип отзыва» на странице отзыва.",
+    sample: "Агентство",
+  },
+  {
+    key: "property",
+    label: "Тип жилья",
+    description: "Вид недвижимости: Квартира, Дом, Студия и т.д.",
+    fallback:
+      "Если не указан — плейсхолдер заменится на пустую строку (уберите лишние скобки в шаблоне).",
+    sample: "Квартира",
+  },
+  {
     key: "excerpt",
     label: "Начало текста",
     description: "Первые ~160 символов публичного текста отзыва.",
@@ -113,18 +131,43 @@ export const REVIEW_DETAIL_SEO_PLACEHOLDERS = [
 ] as const;
 
 export const REVIEW_DETAIL_SEO_EXAMPLES = {
-  titleTemplate: "{title} — аренда в {city}",
-  titleResult: "Хорошая квартира в центре — аренда в София",
-  descriptionTemplate: "Отзыв об аренде в {city}: {excerpt}",
+  titleTemplate: "{title} — {target} в {city}",
+  titleResult: "Хорошая квартира в центре — Агентство в София",
+  descriptionTemplate:
+    "Отзыв о {target} ({property}) в {city}: {excerpt}",
   descriptionResult:
-    "Отзыв об аренде в София: Жили три месяца, всё было спокойно и без проблем с арендодателем…",
+    "Отзыв о Агентство (Квартира) в София: Жили три месяца, всё было спокойно и без проблем с арендодателем…",
 } as const;
 
-const REVIEW_DETAIL_SEO_SAMPLE_VARS: Record<string, string> = {
-  title: REVIEW_DETAIL_SEO_PLACEHOLDERS[0].sample,
-  city: REVIEW_DETAIL_SEO_PLACEHOLDERS[1].sample,
-  excerpt: REVIEW_DETAIL_SEO_PLACEHOLDERS[2].sample,
+function reviewDetailSeoSampleVars(): Record<string, string> {
+  const vars: Record<string, string> = {};
+  for (const item of REVIEW_DETAIL_SEO_PLACEHOLDERS) {
+    vars[item.key] = item.sample;
+  }
+  return vars;
+}
+
+export type ReviewDetailSeoSource = {
+  public_title?: string | null;
+  city?: string | null;
+  public_text?: string | null;
+  target_type?: string | null;
+  property_type?: string | null;
 };
+
+/** Значения плейсхолдеров для страницы конкретного отзыва */
+export function buildReviewDetailSeoVars(
+  review: ReviewDetailSeoSource
+): Record<string, string> {
+  const targetType = review.target_type ?? "";
+  return {
+    title: review.public_title?.trim() || "Отзыв",
+    city: review.city?.trim() || "",
+    target: TARGET_TYPE_LABELS[targetType] ?? targetType,
+    property: review.property_type?.trim() || "",
+    excerpt: excerptText(review.public_text),
+  };
+}
 
 /** Пример подстановки для превью в админке */
 export function previewReviewDetailSeo(
@@ -137,7 +180,7 @@ export function previewReviewDetailSeo(
       seo_review_detail_title: titleTemplate,
       seo_review_detail_description: descriptionTemplate,
     },
-    REVIEW_DETAIL_SEO_SAMPLE_VARS
+    reviewDetailSeoSampleVars()
   );
 }
 

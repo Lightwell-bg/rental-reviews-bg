@@ -5,7 +5,7 @@ import { AddressBlock } from "@/components/AddressBlock";
 import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
 import { TARGET_TYPE_LABELS } from "@/lib/constants";
-import { excerptText, toPageMetadata } from "@/lib/pageSeo";
+import { buildReviewDetailSeoVars, toPageMetadata } from "@/lib/pageSeo";
 import { getPageSeoSettings } from "@/lib/siteSettings";
 import {
   formatDate,
@@ -22,15 +22,11 @@ export async function generateMetadata({
   const { data } = await getApprovedReviewById(id);
   const settings = await getPageSeoSettings();
 
-  const title = data?.public_title?.trim() || "Отзыв";
-  const city = data?.city?.trim() || "";
-  const excerpt = excerptText(data?.public_text);
-
-  return toPageMetadata("review_detail", settings, {
-    title,
-    city,
-    excerpt,
-  });
+  return toPageMetadata(
+    "review_detail",
+    settings,
+    data ? buildReviewDetailSeoVars(data) : undefined
+  );
 }
 
 function Stars({ rating }: { rating: number | null }) {

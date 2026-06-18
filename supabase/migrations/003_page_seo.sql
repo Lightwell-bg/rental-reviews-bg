@@ -29,12 +29,12 @@ INSERT INTO site_settings (key, value, label) VALUES
   (
     'seo_review_detail_title',
     '{title}',
-    '/reviews/[id] — title ({title}, {city})'
+    '/reviews/[id] — title ({title}, {city}, {target}, {property}, {excerpt})'
   ),
   (
     'seo_review_detail_description',
     '{excerpt}',
-    '/reviews/[id] — description ({title}, {city}, {excerpt})'
+    '/reviews/[id] — description ({title}, {city}, {target}, {property}, {excerpt})'
   ),
   (
     'seo_privacy_title',
