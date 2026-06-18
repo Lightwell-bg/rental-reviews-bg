@@ -8,8 +8,10 @@ import {
 } from "@/lib/pageSeo";
 import { ADMIN_SETTINGS_KEYS } from "@/lib/siteSettings";
 import { AnalyticsSettingsForm } from "@/components/admin/AnalyticsSettingsForm";
+import { GoogleVerificationForm } from "@/components/admin/GoogleVerificationForm";
 import { PageSeoSettingsForm } from "@/components/admin/PageSeoSettingsForm";
 import { ReviewDetailSeoPlaceholdersHelp } from "@/components/admin/ReviewDetailSeoPlaceholdersHelp";
+import { getPublicSiteUrl } from "@/lib/siteUrl";
 
 export const metadata = { title: "Настройки сайта" };
 
@@ -34,6 +36,10 @@ export default async function AdminSettingsPage() {
           и{" "}
           <code className="rounded bg-red-100 px-1">
             supabase/migrations/003_page_seo.sql
+          </code>{" "}
+          и{" "}
+          <code className="rounded bg-red-100 px-1">
+            supabase/migrations/005_google_search_verification.sql
           </code>{" "}
           в Supabase SQL Editor.
         </p>
@@ -64,12 +70,15 @@ export default async function AdminSettingsPage() {
     }
   }
 
+  const publicSiteUrl = getPublicSiteUrl();
+
   return (
     <div className="max-w-3xl space-y-10">
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">Настройки сайта</h1>
         <p className="mt-1 text-sm text-zinc-600">
-          SEO заголовков страниц и код счётчиков аналитики.
+          SEO заголовков страниц, верификация Google Search Console и код
+          счётчиков аналитики.
         </p>
         {latestUpdatedAt && (
           <p className="mt-2 text-xs text-zinc-400">
@@ -97,6 +106,30 @@ export default async function AdminSettingsPage() {
         </div>
         <div className="mt-6">
           <PageSeoSettingsForm initial={initial} />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-zinc-900">
+          Google Search Console
+        </h2>
+        <p className="mt-1 text-sm text-zinc-600">
+          HTML-файл верификации в корне сайта (метод «Файл HTML» в{" "}
+          <a
+            href="https://search.google.com/search-console"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-emerald-800 hover:underline"
+          >
+            Search Console
+          </a>
+          ). Работает на Vercel без ручной загрузки в репозиторий.
+        </p>
+        <div className="mt-6">
+          <GoogleVerificationForm
+            initial={initial}
+            publicSiteUrl={publicSiteUrl || "https://reviews.bginfo.eu"}
+          />
         </div>
       </section>
 

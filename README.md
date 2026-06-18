@@ -189,18 +189,30 @@ pytest
 | `/admin/reviews/[id]/edit` | Редактирование отзыва и даты публикации |
 | `/admin/reports` | Жалобы на отзывы |
 | `/admin/replies` | Ответы второй стороны |
-| `/admin/settings` | SEO страниц, счётчики и аналитика (Google Analytics, Метрика, GTM) |
+| `/admin/settings` | SEO страниц, Google Search Console, счётчики и аналитика |
 
 ### SEO и счётчики
 
 В `/admin/settings` можно настроить:
 
 - **SEO** — `title` и `meta description` для каждой публичной страницы. Для `/reviews/[id]`: `{title}`, `{city}`, `{target}` (тип отзыва: Агентство, Арендодатель…), `{property}` (тип жилья: Квартира…), `{excerpt}`. Инструкция — `/admin/settings`.
+- **Google Search Console** — HTML-файл верификации в корне сайта (`https://ваш-домен/google….html`) без загрузки в репозиторий и без ручной настройки Vercel.
 - **Счётчики** — HTML/JS-код в `<head>` и перед `</body>`.
 
-Требуется миграция `003_page_seo.sql` (ключи в таблице `site_settings`). Без неё SEO-форма сохранит значения через upsert, но лучше выполнить SQL в Supabase.
+Требуются миграции `003_page_seo.sql` и `005_google_search_verification.sql` (ключи в таблице `site_settings`). Без них формы могут не сохраняться — выполните SQL в Supabase SQL Editor.
 
-Код подключается на публичных страницах автоматически, без правки репозитория.  
+Код подключается на публичных страницах автоматически, без правки репозитория.
+
+#### Google Search Console (файл в корне)
+
+1. В [Google Search Console](https://search.google.com/search-console) добавьте ресурс `https://reviews.bginfo.eu`.
+2. Выберите метод **«Файл HTML»** — Google покажет имя файла (например `google123….html`) и строку для внутри файла.
+3. Откройте `/admin/settings` → блок **Google Search Console** → вставьте имя и содержимое → **Сохранить**.
+4. Откройте в браузере `https://reviews.bginfo.eu/google….html` — должна отобразиться одна строка верификации.
+5. В Search Console нажмите **Подтвердить**.
+
+Альтернатива без админки: положите файл в `web/public/` и задеплойте на Vercel (менее удобно при смене файла).
+
 Таблица `site_settings` создаётся в `001_init.sql`.
 
 ### Настройка ADMIN_SECRET

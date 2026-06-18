@@ -8,6 +8,12 @@ import {
   siteBrandKey,
   type PageSeoId,
 } from "@/lib/pageSeo";
+import {
+  GOOGLE_VERIFICATION_CONTENT_KEY,
+  GOOGLE_VERIFICATION_FILENAME_KEY,
+  GOOGLE_VERIFICATION_KEYS,
+  type GoogleVerificationSettings,
+} from "@/lib/googleVerification";
 import { createServerClient } from "@/lib/supabase/server";
 
 export const ANALYTICS_KEYS = ["analytics_head", "analytics_body"] as const;
@@ -35,6 +41,7 @@ export const PAGE_SEO_KEYS = [
 export const ADMIN_SETTINGS_KEYS = [
   ...ANALYTICS_KEYS,
   ...PAGE_SEO_KEYS,
+  ...GOOGLE_VERIFICATION_KEYS,
 ] as const;
 
 export const getAnalyticsSettings = cache(async (): Promise<AnalyticsSettings> => {
@@ -104,6 +111,38 @@ export async function getSiteBrandName(): Promise<string> {
   const settings = await getPageSeoSettings();
   return settings[siteBrandKey()]?.trim() || SITE_BRAND_DEFAULT;
 }
+
+export const getGoogleVerificationSettings = cache(
+  async (): Promise<GoogleVerificationSettings> => {
+    const defaults: GoogleVerificationSettings = { filename: "", content: "" };
+
+    try {
+      const supabase = createServerClient();
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", [...GOOGLE_VERIFICATION_KEYS]);
+
+      if (error) {
+        console.warn("google verification settings read failed:", error.message);
+        return defaults;
+      }
+
+      const result = { ...defaults };
+      for (const row of data ?? []) {
+        if (row.key === GOOGLE_VERIFICATION_FILENAME_KEY) {
+          result.filename = row.value ?? "";
+        }
+        if (row.key === GOOGLE_VERIFICATION_CONTENT_KEY) {
+          result.content = row.value ?? "";
+        }
+      }
+      return result;
+    } catch {
+      return defaults;
+    }
+  }
+);
 
 export async function getAllSiteSettings(): Promise<
   Array<{ key: string; value: string; label: string | null }>
