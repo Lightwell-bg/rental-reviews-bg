@@ -138,7 +138,7 @@ npm run build
 
 **Страницы:** `/` · `/reviews` · `/reviews/[id]` · `/rules` · `/privacy` · `/report` · `/reply`
 
-**Админка:** `/admin` · `/admin/reviews` · `/admin/reports` · `/admin/replies` (см. [Админка (web)](#админка-web))
+**Админка:** `/admin` · `/admin/reviews` · `/admin/reviews/new` · `/admin/reports` · `/admin/replies` (см. [Админка (web)](#админка-web))
 
 ### 5. Telegram-бот (bot)
 
@@ -184,7 +184,9 @@ pytest
 | `/admin/login` | Вход по секретному паролю |
 | `/admin` | Сводка: pending/disputed отзывы, жалобы, ответы |
 | `/admin/reviews` | Список отзывов с фильтрами |
+| `/admin/reviews/new` | Ручной ввод отзыва (дата публикации, адрес, текст) |
 | `/admin/reviews/[id]` | Карточка отзыва + модерация |
+| `/admin/reviews/[id]/edit` | Редактирование отзыва и даты публикации |
 | `/admin/reports` | Жалобы на отзывы |
 | `/admin/replies` | Ответы второй стороны |
 | `/admin/settings` | Счётчики и аналитика (Google Analytics, Метрика, GTM) |
@@ -268,6 +270,7 @@ pytest
 | `NEXT_PUBLIC_SUPABASE_URL` | web (браузер) | публичный |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | web (браузер) | публичный, RLS |
 | `NEXT_PUBLIC_TELEGRAM_BOT_LINK` | web (кнопка «Оставить отзыв») | публичный |
+| `PUBLIC_SITE_URL` | бот, web admin (ссылка на отзыв при одобрении) | публичный, напр. `https://reviews.bginfo.eu` |
 | `ADMIN_SECRET` | web `/admin/login` | **секрет**, временная MVP-защита |
 
 Файл `.env` в `.gitignore` — **никогда не коммитьте** его в git.

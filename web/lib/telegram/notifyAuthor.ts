@@ -1,3 +1,5 @@
+import { reviewPublicUrl } from "@/lib/siteUrl";
+
 const NOTIFY_STATUSES = new Set(["request_changes", "rejected", "approved"]);
 
 const STATUS_LABELS: Record<string, string> = {
@@ -36,6 +38,22 @@ function formatNotes(review: ReviewRow): string | null {
   return null;
 }
 
+function buildKeyboard(review: ReviewRow) {
+  const rows: { text: string; callback_data?: string; url?: string }[][] = [];
+
+  if (review.status === "approved") {
+    const reviewUrl = reviewPublicUrl(review.id);
+    if (reviewUrl) {
+      rows.push([{ text: "🌐 Открыть на сайте", url: reviewUrl }]);
+    }
+  }
+
+  rows.push([{ text: "Открыть заявку", callback_data: `my:${review.id}` }]);
+  rows.push([{ text: "Мои заявки", callback_data: "menu:my" }]);
+
+  return { inline_keyboard: rows };
+}
+
 function buildMessage(review: ReviewRow): string | null {
   if (!NOTIFY_STATUSES.has(review.status)) return null;
 
@@ -56,7 +74,17 @@ function buildMessage(review: ReviewRow): string | null {
   } else if (review.status === "rejected") {
     lines.push("", "Отзыв не будет опубликован.");
   } else if (review.status === "approved") {
+    const reviewUrl = reviewPublicUrl(review.id);
     lines.push("", "Отзыв опубликован на сайте.");
+    if (reviewUrl) {
+      lines.push(
+        "",
+        "<b>Ссылка на отзыв:</b>",
+        escapeHtml(reviewUrl),
+        "",
+        "Поделитесь ею с друзьями или в чатах об аренде в Болгарии — так больше людей увидят ваш опыт."
+      );
+    }
   }
 
   const notes = formatNotes(review);
@@ -97,13 +125,6 @@ export async function notifyReviewAuthor(
     };
   }
 
-  const keyboard = {
-    inline_keyboard: [
-      [{ text: "Открыть заявку", callback_data: `my:${review.id}` }],
-      [{ text: "Мои заявки", callback_data: "menu:my" }],
-    ],
-  };
-
   const response = await fetch(
     `https://api.telegram.org/bot${token}/sendMessage`,
     {
@@ -113,7 +134,7 @@ export async function notifyReviewAuthor(
         chat_id: chatId,
         text,
         parse_mode: "HTML",
-        reply_markup: keyboard,
+        reply_markup: buildKeyboard(review),
       }),
     }
   );

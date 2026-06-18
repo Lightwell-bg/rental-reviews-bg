@@ -34,7 +34,15 @@ export default async function AdminReviewsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Отзывы</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">Отзывы</h1>
+        <Link
+          href="/admin/reviews/new"
+          className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-medium text-white hover:bg-brand-900"
+        >
+          + Добавить отзыв
+        </Link>
+      </div>
 
       <form method="GET" className="mt-6 grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 sm:grid-cols-5">
         <label className="text-sm sm:col-span-2">

@@ -40,6 +40,7 @@ OPENROUTER_MODEL = _optional(
     "OPENROUTER_MODEL", "openai/gpt-4o-mini:floor"
 )
 STORAGE_BUCKET = _optional("STORAGE_BUCKET", "review-attachments")
+PUBLIC_SITE_URL = _optional("PUBLIC_SITE_URL", "")
 
 MAX_EVIDENCE_FILES = 5
 CATALOG_PAGE_SIZE = 8

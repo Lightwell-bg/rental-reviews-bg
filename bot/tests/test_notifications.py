@@ -25,7 +25,9 @@ def test_request_changes_notify_kb_has_resubmit_button():
     assert "Исправить" in kb.inline_keyboard[0][0].text
 
 
-def test_approved_message_without_notes():
+def test_approved_message_without_notes(monkeypatch):
+    monkeypatch.setattr("bot.config.PUBLIC_SITE_URL", "https://reviews.bginfo.eu")
+
     review = {
         "id": "xyz",
         "status": "approved",
@@ -37,6 +39,18 @@ def test_approved_message_without_notes():
     text = build_author_status_message(review)
     assert text is not None
     assert "Одобрен" in text
+    assert "https://reviews.bginfo.eu/reviews/xyz" in text
+    assert "Поделитесь" in text
+
+
+def test_approved_notify_kb_has_site_link(monkeypatch):
+    monkeypatch.setattr("bot.config.PUBLIC_SITE_URL", "https://reviews.bginfo.eu")
+
+    from bot.notifications import _author_notify_kb
+
+    kb = _author_notify_kb("xyz", status="approved")
+    assert kb.inline_keyboard[0][0].url == "https://reviews.bginfo.eu/reviews/xyz"
+    assert "сайте" in kb.inline_keyboard[0][0].text
 
 
 def test_disputed_status_not_notified():

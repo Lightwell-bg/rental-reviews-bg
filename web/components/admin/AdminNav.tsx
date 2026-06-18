@@ -6,6 +6,7 @@ import { logoutAdmin } from "@/lib/admin/login";
 const links = [
   { href: "/admin", label: "Панель" },
   { href: "/admin/reviews", label: "Отзывы" },
+  { href: "/admin/reviews/new", label: "Добавить отзыв" },
   { href: "/admin/reports", label: "Жалобы" },
   { href: "/admin/replies", label: "Ответы" },
   { href: "/admin/settings", label: "Аналитика" },

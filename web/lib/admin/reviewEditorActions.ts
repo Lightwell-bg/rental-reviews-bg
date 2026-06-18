@@ -1,0 +1,108 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { requireAdmin } from "@/lib/admin/auth";
+import { parseReviewEditorForm } from "@/lib/admin/reviewForm";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+function buildReviewPayload(data: {
+  target_type: string;
+  city: string;
+  district?: string | null;
+  street_or_complex: string;
+  building_number?: string | null;
+  apartment_number?: string | null;
+  property_type?: string | null;
+  author_display_name: string;
+  public_title?: string | null;
+  public_text: string;
+  private_text?: string | null;
+  rating?: number | null;
+  status: string;
+  published_at: string | null;
+}) {
+  return {
+    target_type: data.target_type,
+    city: data.city,
+    district: data.district,
+    street_or_complex: data.street_or_complex,
+    building_number: data.building_number ?? "X",
+    apartment_number: data.apartment_number,
+    property_type: data.property_type,
+    author_display_name: data.author_display_name,
+    public_title: data.public_title,
+    public_text: data.public_text,
+    private_text: data.private_text,
+    rating: data.rating,
+    status: data.status,
+    published_at: data.published_at,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function saveAdminReview(formData: FormData) {
+  await requireAdmin();
+
+  const parsed = parseReviewEditorForm(formData);
+  if (!parsed.ok) {
+    return { ok: false as const, error: parsed.error };
+  }
+
+  const { data } = parsed;
+  const supabase = createAdminClient();
+  const payload = buildReviewPayload(data);
+
+  if (data.id) {
+    const { error } = await supabase
+      .from("reviews")
+      .update(payload)
+      .eq("id", data.id);
+
+    if (error) return { ok: false as const, error: error.message };
+
+    await supabase.from("moderation_logs").insert({
+      review_id: data.id,
+      admin_id: null,
+      action: "admin_edit",
+      comment: "Изменено через форму в веб-админке",
+    });
+
+    revalidatePaths(data.id);
+    redirect(`/admin/reviews/${data.id}?saved=1`);
+  }
+
+  const { data: created, error } = await supabase
+    .from("reviews")
+    .insert({
+      ...payload,
+      author_id: null,
+      ai_flags: { skipped: true, reason: "admin_manual_entry" },
+    })
+    .select("id")
+    .single();
+
+  if (error) return { ok: false as const, error: error.message };
+
+  const reviewId = created.id;
+  await supabase.from("moderation_logs").insert({
+    review_id: reviewId,
+    admin_id: null,
+    action: "admin_create",
+    comment: "Создано вручную через веб-админку",
+  });
+
+  revalidatePaths(reviewId);
+  redirect(`/admin/reviews/${reviewId}?saved=1`);
+}
+
+function revalidatePaths(reviewId: string) {
+  revalidatePath("/admin");
+  revalidatePath("/admin/reviews");
+  revalidatePath("/admin/reviews/new");
+  revalidatePath(`/admin/reviews/${reviewId}`);
+  revalidatePath(`/admin/reviews/${reviewId}/edit`);
+  revalidatePath("/reviews");
+  revalidatePath(`/reviews/${reviewId}`);
+}

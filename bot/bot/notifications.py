@@ -8,6 +8,7 @@ from bot.config import STATUS_LABELS
 from bot.db import get_user_by_id
 from bot.keyboards import CB_MAIN_MY, CB_MY_REVIEW_PREFIX, CB_RESUBMIT_PREFIX
 from bot.moderation_reasons import mentions_evidence, resubmit_hint_lines
+from bot.utils.site import review_public_url
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,17 @@ NOTIFY_STATUSES = {"request_changes", "rejected", "approved"}
 
 def _author_notify_kb(review_id: str, *, status: str | None = None) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
+    if status == "approved":
+        review_url = review_public_url(review_id)
+        if review_url:
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text="🌐 Открыть на сайте",
+                        url=review_url,
+                    )
+                ]
+            )
     if status == "request_changes":
         rows.append(
             [
@@ -86,7 +98,14 @@ def build_author_status_message(review: dict[str, Any]) -> str | None:
         if notes:
             lines.append(f"\n<b>Комментарий модератора:</b>\n{notes}")
     elif status == "approved":
+        review_url = review_public_url(review["id"])
         lines.append("\nОтзыв опубликован на сайте.")
+        if review_url:
+            lines.append(
+                f"\n<b>Ссылка на отзыв:</b>\n{review_url}\n\n"
+                "Поделитесь ею с друзьями или в чатах об аренде в Болгарии — "
+                "так больше людей увидят ваш опыт."
+            )
         if notes:
             lines.append(f"\n<b>Комментарий модератора:</b>\n{notes}")
 

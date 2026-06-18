@@ -54,3 +54,12 @@ export function formatAddressShort(review: {
 
   return parts.join(", ");
 }
+
+/** Нормализация номера дома для БД (пусто → X). */
+export function normalizeBuildingNumber(value: string | null | undefined): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "X";
+  const lower = trimmed.toLowerCase();
+  if (["-", "нет", "не знаю", "не указан"].includes(lower)) return "X";
+  return trimmed;
+}

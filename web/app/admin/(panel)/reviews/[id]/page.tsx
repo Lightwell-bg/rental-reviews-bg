@@ -63,11 +63,19 @@ export default async function AdminReviewDetailPage({
         <h1 className="text-2xl font-semibold">
           {review.public_title || "Без заголовка"}
         </h1>
-        <ReviewStatusBadge
-          reviewId={review.id}
-          status={review.status}
-          redirectAfterDelete="/admin/reviews"
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href={`/admin/reviews/${review.id}/edit`}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+          >
+            Редактировать
+          </Link>
+          <ReviewStatusBadge
+            reviewId={review.id}
+            status={review.status}
+            redirectAfterDelete="/admin/reviews"
+          />
+        </div>
       </div>
 
       <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-6">
