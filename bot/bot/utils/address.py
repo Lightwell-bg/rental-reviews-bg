@@ -66,3 +66,28 @@ def format_address_block(data: dict) -> str:
         f"Квартира: {format_apartment_label(data.get('apartment_number'))}",
     ]
     return "\n".join(lines)
+
+
+def format_address_short(data: dict) -> str:
+    parts: list[str] = []
+    city = (data.get("city") or "").strip()
+    if city:
+        parts.append(city)
+
+    district = (data.get("district") or "").strip()
+    if district:
+        parts.append(district)
+
+    street = (data.get("street_or_complex") or "").strip()
+    if street:
+        parts.append(street)
+
+    building = (data.get("building_number") or "").strip()
+    if building and building.upper() != "X":
+        parts.append(building)
+
+    apartment = (data.get("apartment_number") or "").strip()
+    if apartment:
+        parts.append(f"кв. {apartment}")
+
+    return ", ".join(parts) if parts else "—"

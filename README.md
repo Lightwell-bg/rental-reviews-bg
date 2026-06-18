@@ -237,6 +237,26 @@ pytest
 
 Без `OPENAI_API_KEY` отзывы по-прежнему уходят на ручную модерацию — шаг AI просто пропускается. В AI **не отправляются** файлы-доказательства; телефоны, email, ЕГН, паспорт маскируются regex-ом до запроса.
 
+### Публикация в Telegram-канал
+
+При **первом одобрении** отзыва (веб-админка или `/admin` в боте) бот публикует карточку в канал: оценка, заголовок, адрес, тип, превью текста и кнопки «Читать на сайте» / «Оставить отзыв».
+
+1. Создайте канал (публичный `@username` или приватный).
+2. Добавьте бота **администратором** с правом **публикации сообщений**.
+3. Узнайте ID канала:
+   - публичный: `@your_channel_username`;
+   - приватный: перешлите пост из канала боту [@userinfobot](https://t.me/userinfobot) или [@getidsbot](https://t.me/getidsbot) → `-100…`.
+4. В корневой `.env` и в `web/.env.local` (для одобрения через сайт):
+   ```env
+   TELEGRAM_PUBLISH_CHANNEL_ID=@your_reviews_channel
+   TELEGRAM_BOT_TOKEN=...   # уже должен быть в web/.env.local для уведомлений автору
+   PUBLIC_SITE_URL=https://reviews.bginfo.eu
+   NEXT_PUBLIC_TELEGRAM_BOT_LINK=https://t.me/your_bot
+   ```
+5. Перезапустите бота и `npm run dev`.
+
+Если `TELEGRAM_PUBLISH_CHANNEL_ID` не задан — канал просто пропускается, одобрение работает как раньше. Повторное одобрение уже опубликованного отзыва **не дублирует** пост в канале.
+
 ---
 
 ## Ручной тест MVP
@@ -262,7 +282,8 @@ pytest
 | `SUPABASE_URL` | бот, web (сервер) | публичный URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | бот, **web admin (сервер)** | **секрет**, не в браузере |
 | `SUPABASE_ANON_KEY` | web (сервер) | ограничен RLS |
-| `TELEGRAM_BOT_TOKEN` | бот; опционально **web admin** (уведомления автору) | **секрет** |
+| `TELEGRAM_BOT_TOKEN` | бот; **web admin** (уведомления автору, публикация в канал) | **секрет** |
+| `TELEGRAM_PUBLISH_CHANNEL_ID` | бот, web admin (пост при одобрении) | `@channel` или `-100…` |
 | `ADMIN_TELEGRAM_IDS` | бот | список ID через запятую |
 | `STORAGE_BUCKET` | бот | имя bucket, по умолчанию `review-attachments` |
 | `OPENAI_API_KEY` | бот (AI-модерация) | секрет, ключ [OpenRouter](https://openrouter.ai/keys) |

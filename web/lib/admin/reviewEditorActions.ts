@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/auth";
 import { parseReviewEditorForm } from "@/lib/admin/reviewForm";
 import { requiresOrganizationName } from "@/lib/constants";
+import { publishApprovedReviewIfNeeded } from "@/lib/telegram/publishChannel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -80,6 +81,12 @@ export async function saveAdminReview(formData: FormData) {
   const payload = buildReviewPayload(data);
 
   if (data.id) {
+    const { data: previousReview } = await supabase
+      .from("reviews")
+      .select("status")
+      .eq("id", data.id)
+      .single();
+
     const { error } = await supabase
       .from("reviews")
       .update(payload)
@@ -107,6 +114,16 @@ export async function saveAdminReview(formData: FormData) {
       action: "admin_edit",
       comment: "Изменено через форму в веб-админке",
     });
+
+    if (data.status === "approved") {
+      const channelResult = await publishApprovedReviewIfNeeded(
+        data.id,
+        previousReview?.status
+      );
+      if (channelResult && !channelResult.ok) {
+        console.error("Channel publish failed:", channelResult.error);
+      }
+    }
 
     revalidatePaths(data.id);
     redirect(`/admin/reviews/${data.id}?saved=1`);
@@ -146,6 +163,13 @@ export async function saveAdminReview(formData: FormData) {
     action: "admin_create",
     comment: "Создано вручную через веб-админку",
   });
+
+  if (data.status === "approved") {
+    const channelResult = await publishApprovedReviewIfNeeded(reviewId, null);
+    if (channelResult && !channelResult.ok) {
+      console.error("Channel publish failed:", channelResult.error);
+    }
+  }
 
   revalidatePaths(reviewId);
   redirect(`/admin/reviews/${reviewId}?saved=1`);

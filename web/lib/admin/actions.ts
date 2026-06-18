@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyReviewAuthor, shouldNotifyAuthor } from "@/lib/telegram/notifyAuthor";
+import { publishApprovedReviewIfNeeded } from "@/lib/telegram/publishChannel";
 import { formatModerationNotes } from "@/lib/moderationReasons";
 
 const REVIEW_ACTIONS: Record<string, string> = {
@@ -28,6 +29,12 @@ export async function moderateReview(
   }
 
   const supabase = createAdminClient();
+  const { data: previousReview } = await supabase
+    .from("reviews")
+    .select("status")
+    .eq("id", reviewId)
+    .single();
+
   const trimmedComment = options?.comment?.trim() || undefined;
   const payload: Record<string, unknown> = { status };
 
@@ -92,6 +99,16 @@ export async function moderateReview(
           `Статус сохранён, но Telegram-уведомление не отправлено: ${notifyResult.error}`
         );
       }
+    }
+  }
+
+  if (status === "approved") {
+    const channelResult = await publishApprovedReviewIfNeeded(
+      reviewId,
+      previousReview?.status
+    );
+    if (channelResult && !channelResult.ok) {
+      console.error("Channel publish failed:", channelResult.error);
     }
   }
 

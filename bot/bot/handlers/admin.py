@@ -34,6 +34,7 @@ from bot.moderation_reasons import (
     reason_label,
 )
 from bot.notifications import notify_review_author
+from bot.channel_publish import publish_review_to_channel
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,21 @@ router = Router()
 
 # telegram_id -> {review_id, action, reason_code}
 _pending_moderation: dict[int, dict[str, str]] = {}
+
+
+async def _after_moderation_status_change(
+    bot,
+    review_id: str,
+    *,
+    previous_status: str | None,
+    new_status: str,
+) -> None:
+    review = get_review(review_id)
+    if not review:
+        return
+    await notify_review_author(bot, review)
+    if new_status == "approved" and previous_status != "approved":
+        await publish_review_to_channel(bot, review)
 
 
 @router.message(Command("admin"))
@@ -221,6 +237,8 @@ async def admin_moderation_comment(message: Message) -> None:
             "removed": "removed",
         }
         new_status = status_map[action]
+        previous = get_review(review_id)
+        previous_status = previous.get("status") if previous else None
         set_review_status(review_id, new_status, moderation_notes=notes)
         add_moderation_log(
             review_id,
@@ -230,7 +248,12 @@ async def admin_moderation_comment(message: Message) -> None:
         )
         review = get_review(review_id)
         if review and message.bot:
-            await notify_review_author(message.bot, review)
+            await _after_moderation_status_change(
+                message.bot,
+                review_id,
+                previous_status=previous_status,
+                new_status=new_status,
+            )
         text = _format_admin_review_card(review) if review else "Готово."
         text += f"\n\n<b>Действие:</b> {action} → {new_status}"
         await message.answer(
@@ -268,6 +291,8 @@ async def _apply_moderation(
     )
 
     try:
+        previous = get_review(review_id)
+        previous_status = previous.get("status") if previous else None
         set_review_status(review_id, new_status, moderation_notes=moderation_notes)
         add_moderation_log(
             review_id,
@@ -277,7 +302,12 @@ async def _apply_moderation(
         )
         review = get_review(review_id)
         if review and callback.bot:
-            await notify_review_author(callback.bot, review)
+            await _after_moderation_status_change(
+                callback.bot,
+                review_id,
+                previous_status=previous_status,
+                new_status=new_status,
+            )
         text = _format_admin_review_card(review) if review else "Готово."
         text += f"\n\n<b>Действие:</b> {action} → {new_status}"
         try:
