@@ -9,7 +9,7 @@ const links = [
   { href: "/admin/reviews/new", label: "Добавить отзыв" },
   { href: "/admin/reports", label: "Жалобы" },
   { href: "/admin/replies", label: "Ответы" },
-  { href: "/admin/settings", label: "Аналитика" },
+  { href: "/admin/settings", label: "Настройки" },
 ];
 
 export function AdminNav() {

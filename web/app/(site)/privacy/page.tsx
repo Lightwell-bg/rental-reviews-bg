@@ -1,6 +1,10 @@
-export const metadata = {
-  title: "Политика данных",
-};
+import { toPageMetadata } from "@/lib/pageSeo";
+import { getPageSeoSettings } from "@/lib/siteSettings";
+
+export async function generateMetadata() {
+  const settings = await getPageSeoSettings();
+  return toPageMetadata("privacy", settings);
+}
 
 export default function PrivacyPage() {
   return (

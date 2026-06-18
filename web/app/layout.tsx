@@ -1,7 +1,8 @@
 import { headers } from "next/headers";
 
 import { AnalyticsHeadScripts } from "@/components/AnalyticsScripts";
-import { getAnalyticsSettings } from "@/lib/siteSettings";
+import { resolvePageSeo } from "@/lib/pageSeo";
+import { getAnalyticsSettings, getPageSeoSettings, getSiteBrandName } from "@/lib/siteSettings";
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -18,18 +19,25 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Rental Reviews BG",
-    template: "%s · Rental Reviews BG",
-  },
-  description:
-    "Проверенные отзывы об опыте аренды недвижимости в Болгарии",
-  icons: {
-    icon: [{ url: "/brand/icon.png", type: "image/png" }],
-    apple: [{ url: "/brand/icon.png", type: "image/png" }],
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const [brand, settings] = await Promise.all([
+    getSiteBrandName(),
+    getPageSeoSettings(),
+  ]);
+  const home = resolvePageSeo("home", settings);
+
+  return {
+    title: {
+      default: home.title,
+      template: `%s · ${brand}`,
+    },
+    description: home.description,
+    icons: {
+      icon: [{ url: "/brand/icon.png", type: "image/png" }],
+      apple: [{ url: "/brand/icon.png", type: "image/png" }],
+    },
+  };
+}
 
 function isPublicSitePath(pathname: string): boolean {
   return !pathname.startsWith("/admin");

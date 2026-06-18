@@ -1,6 +1,10 @@
-export const metadata = {
-  title: "Правила публикации",
-};
+import { toPageMetadata } from "@/lib/pageSeo";
+import { getPageSeoSettings } from "@/lib/siteSettings";
+
+export async function generateMetadata() {
+  const settings = await getPageSeoSettings();
+  return toPageMetadata("rules", settings);
+}
 
 export default function RulesPage() {
   return (

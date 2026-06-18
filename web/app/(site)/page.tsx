@@ -1,7 +1,14 @@
 import Image from "next/image";
 
 import { Button } from "@/components/Button";
+import { toPageMetadata } from "@/lib/pageSeo";
+import { getPageSeoSettings } from "@/lib/siteSettings";
 import { TELEGRAM_BOT_LINK } from "@/lib/constants";
+
+export async function generateMetadata() {
+  const settings = await getPageSeoSettings();
+  return toPageMetadata("home", settings);
+}
 
 function Section({
   title,

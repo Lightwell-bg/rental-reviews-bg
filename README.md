@@ -189,17 +189,19 @@ pytest
 | `/admin/reviews/[id]/edit` | Редактирование отзыва и даты публикации |
 | `/admin/reports` | Жалобы на отзывы |
 | `/admin/replies` | Ответы второй стороны |
-| `/admin/settings` | Счётчики и аналитика (Google Analytics, Метрика, GTM) |
+| `/admin/settings` | SEO страниц, счётчики и аналитика (Google Analytics, Метрика, GTM) |
 
-### Счётчики и аналитика
+### SEO и счётчики
 
-В `/admin/settings` можно вставить HTML/JS-код счётчиков в два поля:
+В `/admin/settings` можно настроить:
 
-- **Код в `<head>`** — Google Analytics, GTM, Meta Pixel
-- **Код перед `</body>`** — Яндекс.Метрика, noscript GTM, виджеты
+- **SEO** — `title` и `meta description` для каждой публичной страницы (главная, каталог, отзыв, правила и т.д.). Для страницы отзыва доступны плейсхолдеры `{title}`, `{city}`, `{excerpt}`.
+- **Счётчики** — HTML/JS-код в `<head>` и перед `</body>`.
+
+Требуется миграция `003_page_seo.sql` (ключи в таблице `site_settings`). Без неё SEO-форма сохранит значения через upsert, но лучше выполнить SQL в Supabase.
 
 Код подключается на публичных страницах автоматически, без правки репозитория.  
-Требуется миграция `001_init.sql` (таблица `site_settings` внутри).
+Таблица `site_settings` создаётся в `001_init.sql`.
 
 ### Настройка ADMIN_SECRET
 

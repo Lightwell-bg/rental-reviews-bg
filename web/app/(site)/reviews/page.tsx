@@ -1,12 +1,15 @@
 import { ErrorState } from "@/components/ErrorState";
 import { ReviewCard } from "@/components/ReviewCard";
 import { ReviewFilters } from "@/components/ReviewFilters";
+import { toPageMetadata } from "@/lib/pageSeo";
+import { getPageSeoSettings } from "@/lib/siteSettings";
 import { getApprovedReviews } from "@/lib/reviews";
 import { getCatalogCities } from "@/lib/catalog";
 
-export const metadata = {
-  title: "Каталог отзывов",
-};
+export async function generateMetadata() {
+  const settings = await getPageSeoSettings();
+  return toPageMetadata("reviews", settings);
+}
 
 type PageProps = {
   searchParams: Promise<{
