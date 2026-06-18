@@ -4,6 +4,7 @@ import { useTransition } from "react";
 
 import { savePageSeoSettings } from "@/lib/admin/pageSeoActions";
 import { PAGE_SEO_PAGES, siteBrandKey } from "@/lib/pageSeo";
+import { ReviewDetailSeoPlaceholdersHelp } from "@/components/admin/ReviewDetailSeoPlaceholdersHelp";
 
 export function PageSeoSettingsForm({
   initial,
@@ -57,7 +58,13 @@ export function PageSeoSettingsForm({
               <span className="font-normal text-zinc-500">{page.path}</span>
             </legend>
 
-            <div className="mt-3 space-y-4">
+              {page.id === "review_detail" && (
+                <div className="mb-2">
+                  <ReviewDetailSeoPlaceholdersHelp compact />
+                </div>
+              )}
+
+              <div className="mt-3 space-y-4">
               <div>
                 <label
                   htmlFor={`${page.id}-title`}
@@ -89,12 +96,6 @@ export function PageSeoSettingsForm({
                   className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm leading-relaxed shadow-sm focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
                 />
               </div>
-
-              {page.placeholders && (
-                <p className="text-xs text-zinc-500">
-                  Плейсхолдеры: <code>{page.placeholders}</code>
-                </p>
-              )}
             </div>
           </fieldset>
         ))}

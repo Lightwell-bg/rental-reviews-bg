@@ -9,6 +9,7 @@ import {
 import { ADMIN_SETTINGS_KEYS } from "@/lib/siteSettings";
 import { AnalyticsSettingsForm } from "@/components/admin/AnalyticsSettingsForm";
 import { PageSeoSettingsForm } from "@/components/admin/PageSeoSettingsForm";
+import { ReviewDetailSeoPlaceholdersHelp } from "@/components/admin/ReviewDetailSeoPlaceholdersHelp";
 
 export const metadata = { title: "Настройки сайта" };
 
@@ -81,9 +82,19 @@ export default async function AdminSettingsPage() {
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-zinc-900">SEO страниц</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Title и meta description для публичных страниц. Пустые поля не
-          перезаписывают встроенные значения по умолчанию при отображении.
+          Title и meta description для публичных страниц. Для страниц отзывов
+          используйте плейсхолдеры —{" "}
+          <a
+            href="#seo-placeholders"
+            className="font-medium text-emerald-800 hover:underline"
+          >
+            как это работает
+          </a>
+          .
         </p>
+        <div className="mt-5">
+          <ReviewDetailSeoPlaceholdersHelp />
+        </div>
         <div className="mt-6">
           <PageSeoSettingsForm initial={initial} />
         </div>

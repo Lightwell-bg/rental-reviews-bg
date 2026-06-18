@@ -86,6 +86,61 @@ export const PAGE_SEO_DEFAULTS: Record<
 
 export const SITE_BRAND_DEFAULT = "Rental Reviews BG";
 
+/** Подсказки для SEO страницы /reviews/[id] — показываются в /admin/settings */
+export const REVIEW_DETAIL_SEO_PLACEHOLDERS = [
+  {
+    key: "title",
+    label: "Заголовок отзыва",
+    description: "Публичный заголовок отзыва из базы (поле «Заголовок»).",
+    fallback: "Если пусто — подставится слово «Отзыв».",
+    sample: "Хорошая квартира в центре",
+  },
+  {
+    key: "city",
+    label: "Город",
+    description: "Город из адреса отзыва.",
+    fallback: "Если не указан — плейсхолдер заменится на пустую строку.",
+    sample: "София",
+  },
+  {
+    key: "excerpt",
+    label: "Начало текста",
+    description: "Первые ~160 символов публичного текста отзыва.",
+    fallback: "Длинный текст обрезается с «…» в конце.",
+    sample:
+      "Жили три месяца, всё было спокойно и без проблем с арендодателем…",
+  },
+] as const;
+
+export const REVIEW_DETAIL_SEO_EXAMPLES = {
+  titleTemplate: "{title} — аренда в {city}",
+  titleResult: "Хорошая квартира в центре — аренда в София",
+  descriptionTemplate: "Отзыв об аренде в {city}: {excerpt}",
+  descriptionResult:
+    "Отзыв об аренде в София: Жили три месяца, всё было спокойно и без проблем с арендодателем…",
+} as const;
+
+const REVIEW_DETAIL_SEO_SAMPLE_VARS: Record<string, string> = {
+  title: REVIEW_DETAIL_SEO_PLACEHOLDERS[0].sample,
+  city: REVIEW_DETAIL_SEO_PLACEHOLDERS[1].sample,
+  excerpt: REVIEW_DETAIL_SEO_PLACEHOLDERS[2].sample,
+};
+
+/** Пример подстановки для превью в админке */
+export function previewReviewDetailSeo(
+  titleTemplate: string,
+  descriptionTemplate: string
+): { title: string; description: string } {
+  return resolvePageSeo(
+    "review_detail",
+    {
+      seo_review_detail_title: titleTemplate,
+      seo_review_detail_description: descriptionTemplate,
+    },
+    REVIEW_DETAIL_SEO_SAMPLE_VARS
+  );
+}
+
 export function pageSeoKey(pageId: PageSeoId, field: "title" | "description") {
   return `seo_${pageId}_${field}`;
 }
