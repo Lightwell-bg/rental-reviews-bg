@@ -1,4 +1,5 @@
 import { reviewPublicUrl } from "@/lib/siteUrl";
+import { telegramChatIdParam } from "@/lib/telegram/resolveAuthorTelegramId";
 
 const NOTIFY_STATUSES = new Set(["request_changes", "rejected", "approved"]);
 
@@ -117,13 +118,7 @@ export async function notifyReviewAuthor(
     return { ok: false, error: `Статус ${review.status} не требует уведомления` };
   }
 
-  const chatId = Number(telegramId);
-  if (!Number.isFinite(chatId)) {
-    return {
-      ok: false,
-      error: `Некорректный telegram_id автора: ${String(telegramId)}`,
-    };
-  }
+  const chatId = telegramChatIdParam(telegramId);
 
   const response = await fetch(
     `https://api.telegram.org/bot${token}/sendMessage`,

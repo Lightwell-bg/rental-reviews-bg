@@ -33,8 +33,8 @@ from bot.moderation_reasons import (
     format_moderation_notes,
     reason_label,
 )
+from bot.channel_publish import is_channel_publish_configured, publish_review_to_channel
 from bot.notifications import notify_review_author
-from bot.channel_publish import publish_review_to_channel
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +50,30 @@ async def _after_moderation_status_change(
     *,
     previous_status: str | None,
     new_status: str,
-) -> None:
+) -> list[str]:
+    issues: list[str] = []
     review = get_review(review_id)
     if not review:
-        return
-    await notify_review_author(bot, review)
+        return ["Заявка не найдена после сохранения статуса."]
+
+    if not await notify_review_author(bot, review):
+        issues.append(
+            "Не удалось уведомить автора в личку (нет telegram_id или пользователь заблокировал бота)."
+        )
+
     if new_status == "approved" and previous_status != "approved":
-        await publish_review_to_channel(bot, review)
+        if not is_channel_publish_configured():
+            issues.append(
+                "Канал не настроен: добавьте TELEGRAM_PUBLISH_CHANNEL_ID в .env и перезапустите бота."
+            )
+        else:
+            ok, err = await publish_review_to_channel(bot, review)
+            if not ok:
+                issues.append(
+                    f"Не удалось опубликовать в канал: {err or 'неизвестная ошибка'}"
+                )
+
+    return issues
 
 
 @router.message(Command("admin"))
@@ -248,14 +265,18 @@ async def admin_moderation_comment(message: Message) -> None:
         )
         review = get_review(review_id)
         if review and message.bot:
-            await _after_moderation_status_change(
+            issues = await _after_moderation_status_change(
                 message.bot,
                 review_id,
                 previous_status=previous_status,
                 new_status=new_status,
             )
+        else:
+            issues = []
         text = _format_admin_review_card(review) if review else "Готово."
         text += f"\n\n<b>Действие:</b> {action} → {new_status}"
+        if issues:
+            text += "\n\n<b>⚠️ Telegram:</b>\n" + "\n".join(f"• {line}" for line in issues)
         await message.answer(
             text,
             reply_markup=admin_review_actions_kb(review_id),
@@ -301,8 +322,9 @@ async def _apply_moderation(
             comment=moderation_notes or f"Telegram admin action: {action}",
         )
         review = get_review(review_id)
+        issues: list[str] = []
         if review and callback.bot:
-            await _after_moderation_status_change(
+            issues = await _after_moderation_status_change(
                 callback.bot,
                 review_id,
                 previous_status=previous_status,
@@ -310,6 +332,8 @@ async def _apply_moderation(
             )
         text = _format_admin_review_card(review) if review else "Готово."
         text += f"\n\n<b>Действие:</b> {action} → {new_status}"
+        if issues:
+            text += "\n\n<b>⚠️ Telegram:</b>\n" + "\n".join(f"• {line}" for line in issues)
         try:
             await callback.message.edit_text(
                 text,

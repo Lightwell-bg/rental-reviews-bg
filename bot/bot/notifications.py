@@ -1,4 +1,5 @@
 import logging
+from html import escape as html_escape
 from typing import Any
 
 from aiogram import Bot
@@ -9,6 +10,7 @@ from bot.db import get_user_by_id
 from bot.keyboards import CB_MAIN_MY, CB_MY_REVIEW_PREFIX, CB_RESUBMIT_PREFIX
 from bot.moderation_reasons import mentions_evidence, resubmit_hint_lines
 from bot.utils.site import review_public_url
+from bot.utils.telegram_notify import resolve_author_telegram_id
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +70,7 @@ def build_author_status_message(review: dict[str, Any]) -> str | None:
         return None
 
     status_label = STATUS_LABELS.get(status, status)
-    title = review.get("public_title") or review.get("city") or "—"
+    title = html_escape(review.get("public_title") or review.get("city") or "—")
     lines = [
         "<b>Статус заявки обновлён</b>",
         f"ID: <code>{review['id']}</code>",
@@ -112,20 +114,20 @@ def build_author_status_message(review: dict[str, Any]) -> str | None:
     return "\n".join(lines)
 
 
-async def notify_review_author(bot: Bot, review: dict[str, Any]) -> None:
+async def notify_review_author(bot: Bot, review: dict[str, Any]) -> bool:
     text = build_author_status_message(review)
     if not text:
-        return
+        return True
 
     author_id = review.get("author_id")
-    if not author_id:
-        return
-
-    user = get_user_by_id(author_id)
-    telegram_id = user.get("telegram_id") if user else None
+    user = get_user_by_id(author_id) if author_id else None
+    telegram_id = resolve_author_telegram_id(review, user)
     if not telegram_id:
-        logger.warning("Cannot notify author %s: no telegram_id", author_id)
-        return
+        logger.warning(
+            "Cannot notify author for review %s: no telegram_id",
+            review.get("id"),
+        )
+        return False
 
     try:
         await bot.send_message(
@@ -133,5 +135,12 @@ async def notify_review_author(bot: Bot, review: dict[str, Any]) -> None:
             text,
             reply_markup=_author_notify_kb(review["id"], status=review.get("status")),
         )
+        return True
     except Exception:
-        logger.warning("Cannot notify author telegram_id=%s", telegram_id, exc_info=True)
+        logger.warning(
+            "Cannot notify author telegram_id=%s review=%s",
+            telegram_id,
+            review.get("id"),
+            exc_info=True,
+        )
+        return False

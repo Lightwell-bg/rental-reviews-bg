@@ -284,8 +284,8 @@ pytest
 | `SUPABASE_URL` | бот, web (сервер) | публичный URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | бот, **web admin (сервер)** | **секрет**, не в браузере |
 | `SUPABASE_ANON_KEY` | web (сервер) | ограничен RLS |
-| `TELEGRAM_BOT_TOKEN` | бот; **web admin** (уведомления автору, публикация в канал) | **секрет** |
-| `TELEGRAM_PUBLISH_CHANNEL_ID` | бот, web admin (пост при одобрении) | `@channel` или `-100…` |
+| `TELEGRAM_BOT_TOKEN` | бот; **web admin** (уведомления автору, публикация в канал) | **секрет**; на Vercel — в Environment Variables |
+| `TELEGRAM_PUBLISH_CHANNEL_ID` | бот, web admin (пост при одобрении) | `@channel` или `-100…`; на Vercel — тоже обязательно |
 | `ADMIN_TELEGRAM_IDS` | бот | список ID через запятую |
 | `STORAGE_BUCKET` | бот | имя bucket, по умолчанию `review-attachments` |
 | `OPENAI_API_KEY` | бот (AI-модерация) | секрет, ключ [OpenRouter](https://openrouter.ai/keys) |

@@ -11,6 +11,7 @@ from bot.config import TARGET_TYPE_LABELS
 from bot.db import get_review_organization_name
 from bot.utils.address import format_address_short
 from bot.utils.site import review_public_url
+from bot.utils.telegram_notify import normalize_publish_channel_id
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ CHANNEL_PREVIEW_MAX = 420
 
 
 def get_publish_channel_id() -> str | None:
-    raw = config.TELEGRAM_PUBLISH_CHANNEL_ID.strip()
+    raw = normalize_publish_channel_id(config.TELEGRAM_PUBLISH_CHANNEL_ID)
     return raw or None
 
 
@@ -115,10 +116,10 @@ def _channel_keyboard(review_id: str) -> InlineKeyboardMarkup | None:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-async def publish_review_to_channel(bot: Bot, review: dict[str, Any]) -> bool:
+async def publish_review_to_channel(bot: Bot, review: dict[str, Any]) -> tuple[bool, str | None]:
     channel_id = get_publish_channel_id()
     if not channel_id:
-        return False
+        return False, "TELEGRAM_PUBLISH_CHANNEL_ID не задан в .env"
 
     org_name = get_review_organization_name(review["id"])
     text = build_channel_post(review, organization_name=org_name)
@@ -132,12 +133,12 @@ async def publish_review_to_channel(bot: Bot, review: dict[str, Any]) -> bool:
             disable_web_page_preview=True,
             reply_markup=keyboard,
         )
-        return True
-    except Exception:
+        return True, None
+    except Exception as exc:
         logger.warning(
             "Cannot publish review %s to channel %s",
             review.get("id"),
             channel_id,
             exc_info=True,
         )
-        return False
+        return False, str(exc)

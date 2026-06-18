@@ -109,8 +109,20 @@ function buildChannelKeyboard(reviewId: string) {
 }
 
 function resolveChannelChatId(): string | null {
-  const raw = process.env.TELEGRAM_PUBLISH_CHANNEL_ID?.trim();
-  return raw || null;
+  let raw = process.env.TELEGRAM_PUBLISH_CHANNEL_ID?.trim();
+  if (!raw) return null;
+
+  if (raw.startsWith("https://t.me/")) {
+    raw = raw.slice("https://t.me/".length);
+  } else if (raw.startsWith("t.me/")) {
+    raw = raw.slice("t.me/".length);
+  }
+  raw = raw.split("/")[0]?.split("?")[0]?.trim() ?? "";
+  if (!raw) return null;
+  if (!raw.startsWith("@") && !/^-?\d+$/.test(raw)) {
+    raw = `@${raw}`;
+  }
+  return raw;
 }
 
 export function isChannelPublishConfigured(): boolean {

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin/auth";
 import { parseReviewEditorForm } from "@/lib/admin/reviewForm";
 import { requiresOrganizationName } from "@/lib/constants";
-import { publishApprovedReviewIfNeeded } from "@/lib/telegram/publishChannel";
+import { runApprovalNotifications } from "@/lib/telegram/approvalNotifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -116,12 +116,16 @@ export async function saveAdminReview(formData: FormData) {
     });
 
     if (data.status === "approved") {
-      const channelResult = await publishApprovedReviewIfNeeded(
+      const { warnings, errors } = await runApprovalNotifications(
         data.id,
         previousReview?.status
       );
-      if (channelResult && !channelResult.ok) {
-        console.error("Channel publish failed:", channelResult.error);
+      const parts = [...errors, ...warnings];
+      if (parts.length > 0) {
+        return {
+          ok: false as const,
+          error: `Отзыв сохранён, но Telegram: ${parts.join("; ")}`,
+        };
       }
     }
 
@@ -165,9 +169,13 @@ export async function saveAdminReview(formData: FormData) {
   });
 
   if (data.status === "approved") {
-    const channelResult = await publishApprovedReviewIfNeeded(reviewId, null);
-    if (channelResult && !channelResult.ok) {
-      console.error("Channel publish failed:", channelResult.error);
+    const { warnings, errors } = await runApprovalNotifications(reviewId, null);
+    const parts = [...errors, ...warnings];
+    if (parts.length > 0) {
+      return {
+        ok: false as const,
+        error: `Отзыв создан, но Telegram: ${parts.join("; ")}`,
+      };
     }
   }
 

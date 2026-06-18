@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/admin/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyReviewAuthor, shouldNotifyAuthor } from "@/lib/telegram/notifyAuthor";
-import { publishApprovedReviewIfNeeded } from "@/lib/telegram/publishChannel";
+import {
+  notifyAuthorForStatusChange,
+  runApprovalNotifications,
+} from "@/lib/telegram/approvalNotifications";
 import { formatModerationNotes } from "@/lib/moderationReasons";
 
 const REVIEW_ACTIONS: Record<string, string> = {
@@ -70,45 +72,23 @@ export async function moderateReview(
 
   if (logError) throw new Error(logError.message);
 
-  const { data: review } = await supabase
-    .from("reviews")
-    .select("id, status, public_title, city, moderation_notes, ai_flags, author_id")
-    .eq("id", reviewId)
-    .single();
-
-  if (review?.author_id) {
-    const { data: author } = await supabase
-      .from("users")
-      .select("telegram_id")
-      .eq("id", review.author_id)
-      .single();
-
-    if (!author?.telegram_id) {
-      if (shouldNotifyAuthor(review.status)) {
-        throw new Error(
-          "Статус сохранён, но у автора нет telegram_id в базе — уведомление невозможно."
-        );
-      }
-    } else if (shouldNotifyAuthor(review.status)) {
-      const notifyResult = await notifyReviewAuthor(
-        author.telegram_id,
-        review
-      );
-      if (!notifyResult.ok) {
-        throw new Error(
-          `Статус сохранён, но Telegram-уведомление не отправлено: ${notifyResult.error}`
-        );
-      }
-    }
-  }
-
   if (status === "approved") {
-    const channelResult = await publishApprovedReviewIfNeeded(
+    const { warnings, errors } = await runApprovalNotifications(
       reviewId,
       previousReview?.status
     );
-    if (channelResult && !channelResult.ok) {
-      console.error("Channel publish failed:", channelResult.error);
+    const parts = [...errors, ...warnings];
+    if (parts.length > 0) {
+      throw new Error(
+        `Статус «approved» сохранён, но есть проблемы с Telegram:\n${parts.join("\n")}`
+      );
+    }
+  } else {
+    const { errors } = await notifyAuthorForStatusChange(reviewId);
+    if (errors.length > 0) {
+      throw new Error(
+        `Статус сохранён, но Telegram-уведомление не отправлено: ${errors.join("; ")}`
+      );
     }
   }
 
