@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/admin/auth";
 import { parseReviewEditorForm } from "@/lib/admin/reviewForm";
@@ -71,7 +70,13 @@ async function syncReviewOrganization(
   if (error) throw new Error(error.message);
 }
 
-export async function saveAdminReview(formData: FormData) {
+export type SaveAdminReviewResult =
+  | { ok: false; error: string }
+  | { ok: true; redirectTo: string };
+
+export async function saveAdminReview(
+  formData: FormData
+): Promise<SaveAdminReviewResult> {
   await requireAdmin();
 
   const parsed = parseReviewEditorForm(formData);
@@ -142,7 +147,7 @@ export async function saveAdminReview(formData: FormData) {
     }
 
     revalidatePaths(data.id);
-    redirect(`/admin/reviews/${data.id}?saved=1`);
+    return { ok: true, redirectTo: `/admin/reviews/${data.id}?saved=1` };
   }
 
   const { data: created, error } = await supabase
@@ -198,7 +203,7 @@ export async function saveAdminReview(formData: FormData) {
   }
 
   revalidatePaths(reviewId);
-  redirect(`/admin/reviews/${reviewId}?saved=1`);
+  return { ok: true, redirectTo: `/admin/reviews/${reviewId}?saved=1` };
 }
 
 function revalidatePaths(reviewId: string) {

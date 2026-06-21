@@ -859,6 +859,16 @@ docker compose down
 с **одним и тем же** `TELEGRAM_BOT_TOKEN`. Telegram выдаст conflict.  
 Для prod остановите локальный бот на Windows.
 
+### Лог: `chat not found` для `chat_id=…`
+
+Бот **уже работает** (`Бот запущен (polling)`). Предупреждение значит, что для одного ID из `ADMIN_TELEGRAM_IDS` Telegram не нашёл чат.
+
+1. Проверьте ID в `.env` на сервере — полный номер из [@userinfobot](https://t.me/userinfobot) (обычно 9–10 цифр). Обрезанный ID вроде `44946` — ошибка.
+2. Каждый админ должен открыть бота [@rentalbgbot](https://t.me/rentalbgbot) и нажать **/start** хотя бы раз.
+3. Исправьте `.env` → `docker compose up -d --build`.
+
+Команда `/admin` всё равно работает для ID, у которых чат с ботом есть.
+
 ### Webhook (не для MVP)
 
 Сейчас бот использует **long polling** — проще для старта.  

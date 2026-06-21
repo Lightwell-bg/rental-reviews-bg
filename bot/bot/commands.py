@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from aiogram import Bot
-from aiogram.exceptions import TelegramNetworkError
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from aiogram.types import BotCommand, BotCommandScopeChat, BotCommandScopeDefault
 
 from bot.config import get_admin_telegram_ids
@@ -58,6 +58,21 @@ async def setup_bot_commands(bot: Bot, *, retries: int = 3) -> bool:
                 ADMIN_COMMANDS,
                 scope=BotCommandScopeChat(chat_id=admin_id),
             )
+        except TelegramBadRequest as exc:
+            msg = (exc.message or "").lower()
+            if "chat not found" in msg:
+                logger.warning(
+                    "Команды админа для chat_id=%s: чат не найден. "
+                    "Проверьте ADMIN_TELEGRAM_IDS (полный ID из @userinfobot) "
+                    "и чтобы этот пользователь нажал /start у бота.",
+                    admin_id,
+                )
+            else:
+                logger.warning(
+                    "Не удалось установить команды админа для chat_id=%s: %s",
+                    admin_id,
+                    exc.message,
+                )
         except Exception:
             logger.warning(
                 "Не удалось установить команды админа для chat_id=%s",

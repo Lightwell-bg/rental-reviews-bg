@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { saveAdminReview } from "@/lib/admin/reviewEditorActions";
@@ -21,6 +22,7 @@ const inputClass =
 const labelClass = "block text-sm font-medium text-zinc-700";
 
 export function ReviewEditorForm({ initial, mode }: ReviewEditorFormProps) {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [targetType, setTargetType] = useState(initial.target_type);
@@ -32,9 +34,12 @@ export function ReviewEditorForm({ initial, mode }: ReviewEditorFormProps) {
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await saveAdminReview(formData);
-      if (result?.error) {
+      if (!result.ok) {
         setError(result.error);
+        return;
       }
+      router.push(result.redirectTo);
+      router.refresh();
     });
   }
 
