@@ -328,6 +328,8 @@ pytest
 
 На Windows для разработки **Docker не обязателен**. `docker-compose.yml` используется на VPS.
 
+**Бот на VPS:** `git clone` или ручная загрузка через WinSCP/`scp` — в корень сервера: `docker-compose.yml`, папка `bot/`, файл `.env`. Папка `web/` на сервер не нужна. Подробно: [DEPLOY.md § 2.2](docs/DEPLOY.md#22-bot--vps-ubuntu--docker).
+
 ---
 
 ## Частые проблемы на Windows

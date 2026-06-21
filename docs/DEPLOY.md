@@ -714,12 +714,95 @@ sudo usermod -aG docker $USER
 
 ### Деплой бота
 
+Рекомендуемый каталог на VPS: `/home/ВАШ_ПОЛЬЗОВАТЕЛЬ/rental-reviews-bg` (можно `/opt/rental-reviews-bg`).
+
+#### Структура на сервере (что должно лежать)
+
+```
+rental-reviews-bg/              ← корень проекта на VPS
+├── .env                        ← секреты (создаёте на сервере, не копируйте с Windows в git)
+├── docker-compose.yml          ← запуск контейнера
+└── bot/                        ← только код бота
+    ├── Dockerfile
+    ├── requirements.txt
+    └── bot/                    ← Python-пакет (main.py, handlers/, …)
+        ├── main.py
+        └── …
+```
+
+Папки **`web/`**, **`supabase/`**, **`.venv`**, **`node_modules`** на сервер для бота **не нужны** (сайт живёт на Vercel).
+
+---
+
+#### Способ A — через git (удобнее для обновлений)
+
 ```bash
+cd ~
 git clone https://github.com/ВАШ_АККАУНТ/rental-reviews-bg.git
 cd rental-reviews-bg
 cp .env.example .env
 nano .env   # или vim — заполните продакшен-значения
 ```
+
+---
+
+#### Способ B — загрузка руками (без git)
+
+Если репозиторий приватный или на сервере нет доступа к GitHub.
+
+**1. На Windows** соберите архив или загрузите папки через **WinSCP**, **FileZilla** или `scp`.
+
+Что **обязательно** скопировать в `~/rental-reviews-bg/` на сервер:
+
+| Локально (Windows) | Куда на сервер |
+|--------------------|----------------|
+| `rental-reviews-bg/docker-compose.yml` | `~/rental-reviews-bg/docker-compose.yml` |
+| `rental-reviews-bg/bot/Dockerfile` | `~/rental-reviews-bg/bot/Dockerfile` |
+| `rental-reviews-bg/bot/requirements.txt` | `~/rental-reviews-bg/bot/requirements.txt` |
+| `rental-reviews-bg/bot/bot/` (вся папка) | `~/rental-reviews-bg/bot/bot/` |
+| `rental-reviews-bg/bot/tests/` (опционально) | не нужно для prod |
+| `rental-reviews-bg/.env.example` | только как шаблон |
+
+Что **не** загружать:
+
+- `web/` — сайт на Vercel, на VPS не нужен
+- `.env` с вашего ПК — лучше создать заново на сервере (см. ниже)
+- `bot/.venv/`, `__pycache__/`, `.git/`
+
+**2. Пример с Git Bash (Windows → VPS):**
+
+```bash
+# с вашего ПК, из корня rental-reviews-bg
+scp docker-compose.yml user@IP_СЕРВЕРА:~/rental-reviews-bg/
+scp -r bot user@IP_СЕРВЕРА:~/rental-reviews-bg/
+```
+
+Первый раз на сервере создайте каталог:
+
+```bash
+ssh user@IP_СЕРВЕРА
+mkdir -p ~/rental-reviews-bg
+```
+
+**3. WinSCP / FileZilla**
+
+1. Протокол **SFTP**, хост = IP VPS, логин/пароль или SSH-ключ.
+2. Слева — папка `D:\1PythonProjects\20260616-Rent\rental-reviews-bg` на ПК.
+3. Справа — ` /home/ВАШ_ПОЛЬЗОВАТЕЛЬ/rental-reviews-bg`.
+4. Перетащите `docker-compose.yml` в корень и папку `bot` целиком.
+5. На сервере: `cp .env.example .env` → `nano .env`.
+
+**4. Создайте `.env` на сервере** (не коммитьте в git):
+
+```bash
+cd ~/rental-reviews-bg
+cp .env.example .env
+nano .env
+```
+
+---
+
+#### Запуск (после git clone или ручной загрузки)
 
 **`.env` на сервере** (минимум):
 
@@ -731,7 +814,14 @@ ADMIN_TELEGRAM_IDS=...
 STORAGE_BUCKET=review-attachments
 ```
 
-`NEXT_PUBLIC_*` на сервере боту **не нужны**.
+`NEXT_PUBLIC_*` на сервере боту **не нужны**. Для публикации в канал и ссылок в уведомлениях добавьте в `.env` на VPS:
+
+```env
+TELEGRAM_PUBLISH_CHANNEL_ID=@your_channel
+PUBLIC_SITE_URL=https://reviews.bginfo.eu
+OPENAI_API_KEY=...          # опционально, AI-модерация
+OPENROUTER_MODEL=openai/gpt-4o-mini:floor
+```
 
 Запуск:
 
@@ -749,7 +839,8 @@ docker compose logs -f bot
 docker compose logs -f bot
 
 # перезапуск после обновления кода
-git pull
+git pull          # если деплой через git
+# или снова загрузите папку bot/ через scp/WinSCP
 docker compose up -d --build
 
 # остановка
