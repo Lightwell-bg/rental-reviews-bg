@@ -72,7 +72,30 @@ async function syncReviewOrganization(
 
 export type SaveAdminReviewResult =
   | { ok: false; error: string }
-  | { ok: true; redirectTo: string };
+  | { ok: true; redirectTo: string; message?: string };
+
+function buildTelegramFeedbackMessage(
+  parts: { errors: string[]; warnings: string[]; info: string[] }
+): string | undefined {
+  const lines = [...parts.info, ...parts.warnings, ...parts.errors];
+  return lines.length > 0 ? lines.join("\n") : undefined;
+}
+
+async function logTelegramDelivery(
+  supabase: SupabaseClient,
+  reviewId: string,
+  telegramResult: Awaited<ReturnType<typeof runApprovalNotifications>>
+) {
+  const { error } = await supabase.from("moderation_logs").insert({
+    review_id: reviewId,
+    admin_id: null,
+    action: "telegram_delivery",
+    comment: formatTelegramDeliveryLog(telegramResult),
+  });
+  if (error) {
+    console.error("moderation_logs telegram_delivery:", error.message);
+  }
+}
 
 export async function saveAdminReview(
   formData: FormData
@@ -123,31 +146,23 @@ export async function saveAdminReview(
       comment: "Изменено через форму в веб-админке",
     });
 
+    let telegramMessage: string | undefined;
+
     if (data.status === "approved") {
       const telegramResult = await runApprovalNotifications(
         data.id,
         previousReview?.status
       );
-      await supabase.from("moderation_logs").insert({
-        review_id: data.id,
-        admin_id: null,
-        action: "telegram_delivery",
-        comment: formatTelegramDeliveryLog(telegramResult),
-      });
-      const parts = [
-        ...telegramResult.errors,
-        ...telegramResult.warnings,
-      ];
-      if (parts.length > 0) {
-        return {
-          ok: false as const,
-          error: `Отзыв сохранён, но Telegram: ${parts.join("; ")}`,
-        };
-      }
+      await logTelegramDelivery(supabase, data.id, telegramResult);
+      telegramMessage = buildTelegramFeedbackMessage(telegramResult);
     }
 
     revalidatePaths(data.id);
-    return { ok: true, redirectTo: `/admin/reviews/${data.id}?saved=1` };
+    return {
+      ok: true,
+      redirectTo: `/admin/reviews/${data.id}?saved=1`,
+      message: telegramMessage ?? "Отзыв сохранён.",
+    };
   }
 
   const { data: created, error } = await supabase
@@ -185,25 +200,20 @@ export async function saveAdminReview(
     comment: "Создано вручную через веб-админку",
   });
 
+  let telegramMessage: string | undefined;
+
   if (data.status === "approved") {
     const telegramResult = await runApprovalNotifications(reviewId, null);
-    await supabase.from("moderation_logs").insert({
-      review_id: reviewId,
-      admin_id: null,
-      action: "telegram_delivery",
-      comment: formatTelegramDeliveryLog(telegramResult),
-    });
-    const parts = [...telegramResult.errors, ...telegramResult.warnings];
-    if (parts.length > 0) {
-      return {
-        ok: false as const,
-        error: `Отзыв создан, но Telegram: ${parts.join("; ")}`,
-      };
-    }
+    await logTelegramDelivery(supabase, reviewId, telegramResult);
+    telegramMessage = buildTelegramFeedbackMessage(telegramResult);
   }
 
   revalidatePaths(reviewId);
-  return { ok: true, redirectTo: `/admin/reviews/${reviewId}?saved=1` };
+  return {
+    ok: true,
+    redirectTo: `/admin/reviews/${reviewId}?saved=1`,
+    message: telegramMessage ?? "Отзыв создан.",
+  };
 }
 
 function revalidatePaths(reviewId: string) {

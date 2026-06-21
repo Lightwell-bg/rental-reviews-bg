@@ -79,13 +79,13 @@ export async function runApprovalNotifications(
 
     const telegramId = resolveAuthorTelegramId(review, author);
     if (!telegramId) {
-      errors.push(
+      warnings.push(
         "У автора нет telegram_id — личное уведомление с ссылкой на отзыв не отправлено."
       );
     } else {
       const notifyResult = await notifyReviewAuthor(telegramId, review);
       if (!notifyResult.ok) {
-        errors.push(
+        warnings.push(
           `Telegram-уведомление автору не отправлено: ${parseTelegramApiError(notifyResult.error)}`
         );
       } else {
@@ -106,7 +106,7 @@ export async function runApprovalNotifications(
       { force: options?.force }
     );
     if (channelResult && !channelResult.ok) {
-      errors.push(
+      warnings.push(
         `Публикация в Telegram-канал не удалась: ${parseTelegramApiError(channelResult.error)}`
       );
     } else if (channelResult?.ok) {

@@ -96,27 +96,23 @@ export async function moderateReview(
       { force: true }
     );
 
-    await supabase.from("moderation_logs").insert({
-      review_id: reviewId,
-      admin_id: null,
-      action: "telegram_delivery",
-      comment: formatTelegramDeliveryLog(telegramResult),
-    });
+    const { error: telegramLogError } = await supabase
+      .from("moderation_logs")
+      .insert({
+        review_id: reviewId,
+        admin_id: null,
+        action: "telegram_delivery",
+        comment: formatTelegramDeliveryLog(telegramResult),
+      });
+
+    if (telegramLogError) {
+      console.error("moderation_logs telegram_delivery:", telegramLogError.message);
+    }
 
     const { warnings, errors, info } = telegramResult;
     feedbackMessage = buildModerationFeedback({ errors, warnings, info });
-    if (errors.length > 0) {
-      throw new Error(
-        `Статус «approved» сохранён, но есть проблемы с Telegram:\n${feedbackMessage}`
-      );
-    }
   } else {
     const telegramResult = await notifyAuthorForStatusChange(reviewId);
-    if (telegramResult.errors.length > 0) {
-      throw new Error(
-        `Статус сохранён, но Telegram-уведомление не отправлено: ${telegramResult.errors.join("; ")}`
-      );
-    }
     feedbackMessage = buildModerationFeedback(telegramResult);
   }
 

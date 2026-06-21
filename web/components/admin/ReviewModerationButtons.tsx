@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { moderateReview } from "@/lib/admin/actions";
@@ -21,6 +22,7 @@ const ACTIONS = [
 ] as const;
 
 export function ReviewModerationButtons({ reviewId }: { reviewId: string }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [openAction, setOpenAction] = useState<string | null>(null);
   const [reasonCode, setReasonCode] = useState<string>(MODERATION_REASONS[0].code);
@@ -30,26 +32,34 @@ export function ReviewModerationButtons({ reviewId }: { reviewId: string }) {
     return action === "request_changes" || action === "reject";
   }
 
+  function runModeration(
+    action: string,
+    options?: { reasonCode?: string; comment?: string }
+  ) {
+    startTransition(async () => {
+      try {
+        const result = await moderateReview(reviewId, action, options);
+        window.alert(result.message);
+        router.refresh();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Ошибка модерации";
+        window.alert(message);
+      }
+    });
+  }
+
   function submit(action: string) {
     if (needsReasonForm(action) && reasonRequiresComment(reasonCode) && !comment.trim()) {
       window.alert("Для причины «Другое» нужен комментарий для автора.");
       return;
     }
 
-    startTransition(async () => {
-      try {
-        const result = await moderateReview(reviewId, action, {
-          reasonCode,
-          comment: comment.trim() || undefined,
-        });
-        setOpenAction(null);
-        setComment("");
-        window.alert(result.message);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Ошибка модерации";
-        window.alert(message);
-      }
+    setOpenAction(null);
+    setComment("");
+    runModeration(action, {
+      reasonCode,
+      comment: comment.trim() || undefined,
     });
   }
 
@@ -74,18 +84,7 @@ export function ReviewModerationButtons({ reviewId }: { reviewId: string }) {
                 "Комментарий модератора (необязательно)"
               );
               if (optional === null) return;
-              startTransition(async () => {
-                try {
-                  const result = await moderateReview(reviewId, a.id, {
-                    comment: optional.trim() || undefined,
-                  });
-                  window.alert(result.message);
-                } catch (error) {
-                  const message =
-                    error instanceof Error ? error.message : "Ошибка модерации";
-                  window.alert(message);
-                }
-              });
+              runModeration(a.id, { comment: optional.trim() || undefined });
             }}
             className={`rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50 ${a.className}`}
           >

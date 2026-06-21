@@ -38,6 +38,9 @@ export function ReviewEditorForm({ initial, mode }: ReviewEditorFormProps) {
         setError(result.error);
         return;
       }
+      if (result.message) {
+        window.alert(result.message);
+      }
       router.push(result.redirectTo);
       router.refresh();
     });
