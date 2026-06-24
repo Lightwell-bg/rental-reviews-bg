@@ -33,7 +33,10 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description: home.description,
     icons: {
-      icon: [{ url: "/brand/icon.png", type: "image/png" }],
+      icon: [
+        { url: "/favicon.ico", sizes: "any" },
+        { url: "/brand/icon.png", type: "image/png", sizes: "32x32" },
+      ],
       apple: [{ url: "/brand/icon.png", type: "image/png" }],
     },
   };
