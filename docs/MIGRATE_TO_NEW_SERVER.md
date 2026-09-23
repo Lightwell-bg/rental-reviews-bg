@@ -26,7 +26,7 @@
 
 ```bash
 ssh user@СТАРЫЙ_IP
-cd ~/rental-reviews-bg   # или /opt/rental-reviews-bg
+cd /opt/rental-reviews-bg
 docker compose ps
 cat .env   # запомните/скопируйте значения — понадобятся ниже
 ```
@@ -39,7 +39,7 @@ cat .env   # запомните/скопируйте значения — пон
 ## Шаг 1 — скачать `.env` со старого сервера через WinSCP
 
 1. Откройте WinSCP → подключение по SFTP к старому серверу.
-2. Перейдите в `~/rental-reviews-bg/` (или `/opt/rental-reviews-bg/`).
+2. Перейдите в `/opt/rental-reviews-bg/`.
 3. Скачайте файл `.env` на Windows, например в
    `C:\Users\Vlad\Downloads\rental-reviews-bg.env`.
 
@@ -61,12 +61,21 @@ docker --version
 docker compose version
 ```
 
-Клонируйте репозиторий (у вас есть GitHub-токен — используйте его в URL, чтобы
-не вводить пароль, если репозиторий приватный):
+`/opt` принадлежит `root` — сначала создайте папку и отдайте её своему
+пользователю, иначе будет `Permission denied`:
 
 ```bash
-cd ~
-git clone https://<ВАШ_GITHUB_ТОКЕН>@github.com/Lightwell-bg/rental-reviews-bg.git
+sudo mkdir -p /opt/rental-reviews-bg
+sudo chown $USER:$USER /opt/rental-reviews-bg
+```
+
+Клонируйте репозиторий (используйте **новый** токен — старый, который
+был показан в чате, нужно отозвать на github.com/settings/tokens и
+выпустить заново, см. примечание в конце шага):
+
+```bash
+cd /opt
+git clone https://<ВАШ_НОВЫЙ_ТОКЕН>@github.com/Lightwell-bg/rental-reviews-bg.git rental-reviews-bg
 cd rental-reviews-bg
 ```
 
@@ -79,20 +88,24 @@ cd rental-reviews-bg
 > При следующем `git pull` Git спросит логин/пароль (или настройте
 > [credential helper](https://git-scm.com/docs/gitcredentials), или используйте
 > Personal Access Token как пароль при запросе).
+>
+> **Токен, который был вставлен в чат ранее, считается скомпрометированным** —
+> отзовите его на [github.com/settings/tokens](https://github.com/settings/tokens)
+> и используйте здесь новый.
 
 ---
 
 ## Шаг 3 — залить `.env` на новый сервер через WinSCP
 
 1. В WinSCP подключитесь теперь к **новому** серверу `37.27.13.102`.
-2. Перейдите в `~/rental-reviews-bg/`.
+2. Перейдите в `/opt/rental-reviews-bg/`.
 3. Загрузите (drag-and-drop) скачанный на шаге 1 файл `.env` в эту папку.
 
 Проверьте на сервере, что файл на месте и без искажений (WinSCP иногда меняет
 перевод строк — выбирайте бинарный/текстовый режим Auto):
 
 ```bash
-cd ~/rental-reviews-bg
+cd /opt/rental-reviews-bg
 ls -la .env
 cat .env   # сверьте с тем, что было на старом сервере
 ```
@@ -107,7 +120,7 @@ Telegram Bot API не позволяет двум процессам с одни
 
 ```bash
 ssh user@СТАРЫЙ_IP
-cd ~/rental-reviews-bg
+cd /opt/rental-reviews-bg
 docker compose down
 ```
 
@@ -121,7 +134,7 @@ docker compose down
 
 ```bash
 ssh user@37.27.13.102
-cd ~/rental-reviews-bg
+cd /opt/rental-reviews-bg
 docker compose up -d --build
 docker compose logs -f bot
 ```
@@ -157,7 +170,7 @@ docker compose logs -f bot
 
 ```bash
 ssh user@СТАРЫЙ_IP
-cd ~/rental-reviews-bg
+cd /opt/rental-reviews-bg
 docker compose down   # если ещё не сделали на шаге 4
 docker system prune -f   # опционально, освободить место (образы/кэш бота)
 ```
